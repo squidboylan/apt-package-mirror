@@ -1,8 +1,0 @@
----
-versions:
-    - trusty
-    - xenial
-
-mirror_path: ./
-
-mirror_url: https://mirrors.cat.pdx.edu/ubuntu
