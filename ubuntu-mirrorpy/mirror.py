@@ -15,16 +15,14 @@ class Mirror:
         self.temp_indices = '/tmp/dists-indices'
 
     def sync(self):
-        self.get_pool()
-        self.get_dists()
+        self.update_mirrors()
         self.get_dists_indices()
-        self.get_indices()
         self.check_indices()
         self.update_indices()
         self.gen_lslR()
 
     def get_indices(self):
-        rsync_command = "rsync --recursive --times --links --hard-links -vPz rsync://{mirror_url}:/ubuntu/indices/ {mirror_path}/indices.tmp"
+        rsync_command = "rsync --recursive --times --links --hard-links -vPz rsync://{mirror_url}:/ubuntu/indices/ {mirror_path}/indices"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 mirror_path=self.mirror_path
@@ -35,8 +33,10 @@ class Mirror:
         for line in rsync_status.stdout:
             print(line)
 
-    def get_pool(self):
-        rsync_command = "rsync --recursive --times --links --hard-links -vPz rsync://{mirror_url}:/ubuntu/pool {mirror_path}"
+    def update_mirrors(self):
+        rsync_command = "rsync --recursive --times --links --hard-links \
+                --exclude 'Packages*' --exclude 'Sources*' --exclude 'Release*' \
+                -vPz rsync://{mirror_url}:/ubuntu/ {mirror_path}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 mirror_path=self.mirror_path
@@ -133,4 +133,4 @@ class Mirror:
 
     def gen_lslR(self):
         print("Generating ls -lR file")
-        ls_status = Popen("rm {mirror_path}/ls-lR ; ls -lR {mirror_path} > {mirror_path}/ls-lR && gzip {mirror_path}/ls-lR".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
+        ls_status = Popen("rm {mirror_path}/ls-lR.gz ; ls -lR {mirror_path} > {mirror_path}/ls-lR && gzip {mirror_path}/ls-lR".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
