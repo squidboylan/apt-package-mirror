@@ -15,12 +15,13 @@ class Mirror:
         self.temp_indices = '/tmp/dists-indices'
 
     def sync(self):
-        #self.get_pool()
-        #self.get_dists()
-        #self.get_dists_indices()
-        #self.get_indices()
+        self.get_pool()
+        self.get_dists()
+        self.get_dists_indices()
+        self.get_indices()
         self.check_indices()
-        #self.gen_lslR()
+        self.update_indices()
+        self.gen_lslR()
 
     def get_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links -vPz rsync://{mirror_url}:/ubuntu/indices/ {mirror_path}/indices.tmp"
@@ -68,7 +69,6 @@ class Mirror:
                 -vPz rsync://{mirror_url}:/ubuntu/dists/ {temp_indices}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
-                mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
             )
 
@@ -79,17 +79,29 @@ class Mirror:
             print(line)
 
     def check_indices(self):
-        for release in os.listdir(self.temp_indices):
-            for section in os.listdir(os.path.join(self.temp_indices, release)):
-                if os.path.isdir(os.path.join(self.temp_indices, release, section)):
-                    dir = os.path.join(self.temp_indices, release, section)
-                    for arch in os.listdir(dir):
-                        dir = os.path.join(dir, arch)
-                        if os.path.isdir(dir):
-                            for file in os.listdir(dir):
-                                if file.endswith("Packages.gz"):
-                                    #self.check_index(os.path.join(dir, file))
-                                    print(os.path.join(dir, file))
+        dists_path = self.temp_indices
+        indices = self._check_indices(dists_path)
+        for index in indices:
+            self.check_index(index)
+            #print(index)
+
+    def _check_indices(self, dir):
+        #print(dir)
+        if not os.path.isfile(dir):
+            indices = []
+            for item in os.listdir(dir):
+                file_path = os.path.join(dir, item)
+                indices = indices + self._check_indices(file_path)
+
+            return indices
+
+        else:
+            if dir.endswith("Packages.gz") or dir.endswith("Sources.gz"):
+                return [dir]
+            else:
+                return []
+
+
 
     def check_index(self, file_name):
         with gzip.open(file_name) as f_stream:
@@ -108,8 +120,17 @@ class Mirror:
                 else:
                     print("Found file: " + file_path)
 
+    def update_indices(self):
+        rsync_command = "rsync --recursive --times --links --hard-links \
+                -vPz {temp_indices}/ {mirror_path}/dists"
+        rsync_command = rsync_command.format(
+                mirror_path=self.mirror_path,
+                temp_indices=self.temp_indices
+            )
 
+        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                shell=True)
 
     def gen_lslR(self):
         print("Generating ls -lR file")
-        ls_status = Popen("ls -lR {mirror_path} > {mirror_path}/ls-lR && gzip {mirror_path}/ls-lR".format(mirror_path=self.mirror_path))
+        ls_status = Popen("rm {mirror_path}/ls-lR ; ls -lR {mirror_path} > {mirror_path}/ls-lR && gzip {mirror_path}/ls-lR".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
