@@ -1,0 +1,5 @@
+---
+
+mirror_path: /path/to/mirror
+
+mirror_url: mirror.that.supports.rsync.net
