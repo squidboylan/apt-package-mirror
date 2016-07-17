@@ -10,10 +10,10 @@ import sys
 
 class Mirror:
 
-    def __init__(self, mirror_path, mirror_url):
+    def __init__(self, mirror_path, mirror_url, temp_indices='/tmp/dists-indices'):
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
-        self.temp_indices = '/tmp/dists-indices'
+        self.temp_indices = temp_indices
 
     def sync(self):
         self.update_mirrors()
@@ -27,8 +27,8 @@ class Mirror:
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'Packages*' --exclude 'Sources*' --exclude 'Release*' \
-                --contimeout=10 --timeout=10 \
-                -vPz rsync://{mirror_url}:/ubuntu/ {mirror_path}"
+                --contimeout=10 --timeout=10 --no-motd \
+                -vPz rsync://{mirror_url}/ {mirror_path}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 mirror_path=self.mirror_path
@@ -46,8 +46,8 @@ class Mirror:
 
     def get_dists_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --exclude 'installer*' --delete \
-                -vPz rsync://{mirror_url}:/ubuntu/dists/ {temp_indices}"
+                --exclude 'installer*' --delete --no-motd \
+                -vPz rsync://{mirror_url}/dists/ {temp_indices}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 temp_indices=self.temp_indices
@@ -61,7 +61,7 @@ class Mirror:
 
     def update_project_dir(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delete -vPz rsync://{mirror_url}:/ubuntu/project \
+                --delete -vPz --no-motd rsync://{mirror_url}/project \
                 {mirror_path} && date -u > ${mirror_path}/project/trace/$(hostname -f)"
 
         rsync_command = rsync_command.format(
@@ -153,18 +153,19 @@ class Mirror:
         with gzip.open(file_name) as f_stream:
             f_contents = f_stream.read()
 
-        for line in f_contents.split('\n'):
-            if line.startswith("Package:"):
-                package = line.split()[1]
+        if file_name.endswith("Packages.gz"):
+            for line in f_contents.split('\n'):
+                if line.startswith("Package:"):
+                    package = line.split()[1]
 
-            if line.startswith("Filename:"):
-                file_name = line.split(" ")[1]
-                file_path = os.path.join(self.mirror_path, file_name)
-                if not os.path.isfile(file_path):
-                    print("Missing file: " + file_path)
-                    sys.exit(1)
-                else:
-                    print("Found file: " + file_path)
+                if line.startswith("Filename:"):
+                    file_name = line.split(" ")[1]
+                    file_path = os.path.join(self.mirror_path, file_name)
+                    if not os.path.isfile(file_path):
+                        print("Missing file: " + file_path)
+                        sys.exit(1)
+                    else:
+                        print("Found file: " + file_path)
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \

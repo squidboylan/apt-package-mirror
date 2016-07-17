@@ -25,12 +25,17 @@ if not os.path.exists(mirror_path):
     print("Mirror path does not exist, please fix it")
     sys.exit(1)
 
-if not os.path.exists(os.path.join(mirror_path, 'ubuntu')):
-    os.makedirs(os.path.join(mirror_path, 'ubuntu'))
+try:
+    temp_indices = config['temp_files_path']
+except:
+    temp_indices = None
 
-mirror_path = os.path.join(mirror_path, 'ubuntu')
-
-mirror = Mirror(mirror_path=mirror_path,
-                mirror_url=config['mirror_url'])
+if temp_indices:
+    mirror = Mirror(mirror_path=mirror_path,
+                    mirror_url=config['mirror_url'],
+                    temp_indices=temp_indices)
+else:
+    mirror = Mirror(mirror_path=mirror_path,
+                    mirror_url=config['mirror_url'])
 
 mirror.sync()
