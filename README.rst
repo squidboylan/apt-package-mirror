@@ -24,3 +24,8 @@ mirror from must support rsync. Run the script using the following
 .. code::
 
     python ubuntu-mirrorpy/ubuntu-mirror.py config.yaml
+
+.. Note::
+
+    This tool only supports python2.7 right now, it might work with python3 but
+    I have not tested that.
