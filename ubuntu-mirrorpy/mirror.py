@@ -27,6 +27,7 @@ class Mirror:
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'Packages*' --exclude 'Sources*' --exclude 'Release*' \
+                --contimeout=10 --timeout=10 \
                 -vPz rsync://{mirror_url}:/ubuntu/ {mirror_path}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
@@ -39,9 +40,13 @@ class Mirror:
         for line in rsync_status.stdout:
             print(line)
 
+        if rsync_status.returncode != 0:
+            print(rsync_command + " Failed with return code " + str(rsync_status.returncode))
+
+
     def get_dists_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --exclude 'installer*' \
+                --exclude 'installer*' --delete \
                 -vPz rsync://{mirror_url}:/ubuntu/dists/ {temp_indices}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
@@ -163,7 +168,7 @@ class Mirror:
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                -vPz {temp_indices}/ {mirror_path}/dists"
+                -vPz --delete {temp_indices}/ {mirror_path}/dists"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
