@@ -1,7 +1,7 @@
 from __future__ import print_function
 import yaml
 import os
-from mirror import Mirror
+from apt_package_mirror.mirror import Mirror
 import sys
 
 def main():
