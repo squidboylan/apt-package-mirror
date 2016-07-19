@@ -30,13 +30,15 @@ def main():
     except:
         temp_indices = None
 
-    if temp_indices:
-        mirror = Mirror(mirror_path=mirror_path,
-                        mirror_url=config['mirror_url'],
-                        temp_indices=temp_indices)
-    else:
-        mirror = Mirror(mirror_path=mirror_path,
-                        mirror_url=config['mirror_url'])
+    try:
+        log_file = config['log_file']
+    except:
+        log_file = None
+
+    mirror = Mirror(mirror_path=mirror_path,
+                    mirror_url=config['mirror_url'],
+                    temp_indices=temp_indices,
+                    log_file=log_file)
 
     mirror.sync()
 

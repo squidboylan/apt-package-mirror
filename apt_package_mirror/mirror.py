@@ -10,12 +10,19 @@ import sys
 
 class Mirror:
 
-    def __init__(self, mirror_path, mirror_url, temp_indices='/tmp/dists-indices'):
+    def __init__(self, mirror_path, mirror_url,
+            temp_indices=None, log_file=None):
+
+        if not temp_indices:
+            self.temp_indices = '/tmp/dists-indices'
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
         self.temp_indices = temp_indices
+        self.log_file = log_file
+        self.log_opened = None
 
     def sync(self):
+        self.open_log_file()
         self.update_mirrors()
         self.get_dists_indices()
         self.check_release_files()
@@ -38,6 +45,8 @@ class Mirror:
                 shell=True)
 
         for line in rsync_status.stdout:
+            if self.log_opened:
+                self.log_opened.write(line)
             print(line)
 
         if rsync_status.returncode != 0:
@@ -57,6 +66,8 @@ class Mirror:
                 shell=True)
 
         for line in rsync_status.stdout:
+            if self.log_opened:
+                self.log_opened.write(line)
             print(line)
 
     def update_project_dir(self):
@@ -73,6 +84,8 @@ class Mirror:
                 shell=True)
 
         for line in rsync_status.stdout:
+            if self.log_opened:
+                self.log_opened.write(line)
             print(line)
 
     def check_indices(self):
@@ -80,7 +93,6 @@ class Mirror:
         indices = self._get_indices(dists_path)
         for index in indices:
             self.check_index(index)
-            #print(index)
 
     def _get_indices(self, dir):
         if not os.path.isfile(dir):
@@ -140,12 +152,20 @@ class Mirror:
                 file_path = os.path.join(dir, file_to_check)
 
                 if os.path.isfile(file_path):
+
+                    if self.log_opened:
+                        self.log_opened.write("Found file: " + file_path + '\n')
                     print("Found file: " + file_path)
                     with open(file_path, 'r') as f_stream:
                         file_path_contents = f_stream.read()
 
                     actual_md5sum = hashlib.md5(file_path_contents).hexdigest()
                     if md5sum != actual_md5sum:
+                        if self.log_opened:
+                            self.log_opened.write(
+                                    actual_md5sum + ' does not match ' + md5sum + '\n'
+                                )
+                            self.log_opened.close()
                         print(actual_md5sum + ' does not match ' + md5sum)
                         sys.exit(1)
 
@@ -162,9 +182,14 @@ class Mirror:
                     file_name = line.split(" ")[1]
                     file_path = os.path.join(self.mirror_path, file_name)
                     if not os.path.isfile(file_path):
+                        if self.log_opened:
+                            self.log_opened.write("Missing file: " + file_path + '\n')
+                            self.log_opened.close()
                         print("Missing file: " + file_path)
                         sys.exit(1)
                     else:
+                        if self.log_opened:
+                            self.log_opened.write("Found file: " + file_path + '\n')
                         print("Found file: " + file_path)
 
     def update_indices(self):
@@ -181,3 +206,7 @@ class Mirror:
     def gen_lslR(self):
         print("Generating ls -lR file")
         ls_status = Popen("rm {mirror_path}/ls-lR.gz ; ls -lR {mirror_path} > {mirror_path}/ls-lR && gzip {mirror_path}/ls-lR".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
+
+    def open_log_file(self):
+        if self.log_file:
+            self.log_opened = open(self.log_file, 'a')

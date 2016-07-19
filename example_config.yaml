@@ -3,3 +3,7 @@
 mirror_path: /path/to/mirror
 
 mirror_url: mirror.that.supports.rsync.net
+
+temp_files_path: /tmp/ubuntu-mirror-files
+
+log_file: /var/log/ubuntu-mirror
