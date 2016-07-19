@@ -1,9 +1,13 @@
 ---
 
+# REQUIRED, Ubuntu package mirrors take about 1T currently
 mirror_path: /path/to/mirror
 
+# REQUIRED, Must be a mirror that supports rsync
 mirror_url: mirror.that.supports.rsync.net
 
+# Defaults to /tmp/dists-indices, takes about 10G
 temp_files_path: /tmp/ubuntu-mirror-files
 
+# Not required but will only print log info if missing
 log_file: /var/log/ubuntu-mirror
