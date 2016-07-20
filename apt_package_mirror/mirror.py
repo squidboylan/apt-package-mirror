@@ -34,7 +34,7 @@ class Mirror:
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'Packages*' --exclude 'Sources*' --exclude 'Release*' \
-                --contimeout=10 --timeout=10 --no-motd \
+                --contimeout=10 --timeout=10 --no-motd --delete \
                 -vpPz rsync://{mirror_url}/ {mirror_path}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
@@ -194,7 +194,7 @@ class Mirror:
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                -vpPz --delete {temp_indices}/ {mirror_path}/dists"
+                -vpPz {temp_indices}/ {mirror_path}/dists"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
