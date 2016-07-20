@@ -30,6 +30,7 @@ class Mirror:
         self.update_indices()
         self.update_project_dir()
         self.gen_lslR()
+        self.log_opened.close()
 
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
@@ -41,6 +42,7 @@ class Mirror:
                 mirror_path=self.mirror_path
             )
 
+        print("Downloading all new files except indices")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
@@ -62,6 +64,7 @@ class Mirror:
                 temp_indices=self.temp_indices
             )
 
+        print("Downloading dist indices and storing them in a temporary place")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
@@ -80,6 +83,7 @@ class Mirror:
                 mirror_path=self.mirror_path
             )
 
+        print("Updating 'project' directory")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
@@ -90,6 +94,7 @@ class Mirror:
 
     def check_indices(self):
         dists_path = self.temp_indices
+        print("Gathering Indices")
         indices = self._get_indices(dists_path)
         for index in indices:
             self.check_index(index)
@@ -110,6 +115,7 @@ class Mirror:
                 return []
 
     def check_release_files(self):
+        print("Gathering Release Files")
         release_files = self._get_release_files(self.temp_indices)
         for file in release_files:
             self.check_release_file(file)
@@ -130,6 +136,8 @@ class Mirror:
                 return []
 
     def check_release_file(self, file_name):
+
+        print("Checking release file " + file_name)
         with open(file_name) as f_stream:
             f_contents = f_stream.read()
 
@@ -153,9 +161,11 @@ class Mirror:
 
                 if os.path.isfile(file_path):
 
+                    """
                     if self.log_opened:
                         self.log_opened.write("Found file: " + file_path + '\n')
                     print("Found file: " + file_path)
+                    """
                     with open(file_path, 'r') as f_stream:
                         file_path_contents = f_stream.read()
 
@@ -163,16 +173,17 @@ class Mirror:
                     if md5sum != actual_md5sum:
                         if self.log_opened:
                             self.log_opened.write(
-                                    actual_md5sum + ' does not match ' + md5sum + '\n'
+                                    actual_md5sum + ' does not match ' + md5sum + ' for file ' + file_path + '\n'
                                 )
                             self.log_opened.close()
-                        print(actual_md5sum + ' does not match ' + md5sum)
+                        print(actual_md5sum + ' does not match ' + md5sum + ' for file ' + file_path)
                         sys.exit(1)
 
     def check_index(self, file_name):
         with gzip.open(file_name) as f_stream:
             f_contents = f_stream.read()
 
+        print("Checking index " + file_name)
         if file_name.endswith("Packages.gz"):
             for line in f_contents.split('\n'):
                 if line.startswith("Package:"):
@@ -187,10 +198,12 @@ class Mirror:
                             self.log_opened.close()
                         print("Missing file: " + file_path)
                         sys.exit(1)
+                    """
                     else:
                         if self.log_opened:
                             self.log_opened.write("Found file: " + file_path + '\n')
                         print("Found file: " + file_path)
+                    """
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
@@ -200,6 +213,7 @@ class Mirror:
                 temp_indices=self.temp_indices
             )
 
+        print("updating 'indices' directory")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
