@@ -35,7 +35,7 @@ class Mirror:
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'Packages*' --exclude 'Sources*' --exclude 'Release*' \
                 --contimeout=10 --timeout=10 --no-motd \
-                -vPz rsync://{mirror_url}/ {mirror_path}"
+                -vpPz rsync://{mirror_url}/ {mirror_path}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 mirror_path=self.mirror_path
@@ -56,7 +56,7 @@ class Mirror:
     def get_dists_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'installer*' --delete --no-motd \
-                -vPz rsync://{mirror_url}/dists/ {temp_indices}"
+                -vpPz rsync://{mirror_url}/dists/ {temp_indices}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 temp_indices=self.temp_indices
@@ -72,7 +72,7 @@ class Mirror:
 
     def update_project_dir(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delete -vPz --no-motd rsync://{mirror_url}/project \
+                --delete -vpPz --no-motd rsync://{mirror_url}/project \
                 {mirror_path} && date -u > ${mirror_path}/project/trace/$(hostname -f)"
 
         rsync_command = rsync_command.format(
@@ -194,7 +194,7 @@ class Mirror:
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                -vPz --delete {temp_indices}/ {mirror_path}/dists"
+                -vpPz --delete {temp_indices}/ {mirror_path}/dists"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
