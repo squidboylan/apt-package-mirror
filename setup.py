@@ -7,9 +7,9 @@ setuptools.setup(
         description = 'Python script for running an apt package mirror',
         author_email = 'calebboylan@gmail.com',
         url = 'https://github.com/squidboylan/apt-package-mirror',
-        version = '0.2.0',
+        version = '0.2.1',
         classifiers = [
-            'Development Status :: 3 - Alpha',
+            'Development Status :: 4 - Beta',
             'Intended Audience :: System Administrators',
             'License :: OSI Approved :: Apache Software License',
             'Operating System :: POSIX :: Linux',
