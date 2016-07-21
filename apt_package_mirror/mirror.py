@@ -6,6 +6,7 @@ import yaml
 import os
 import hashlib
 from subprocess import Popen, STDOUT, PIPE
+import logging
 import sys
 
 class Mirror:
@@ -18,14 +19,24 @@ class Mirror:
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
         self.temp_indices = temp_indices
-        self.log_file = log_file
-        self.log_opened = None
+
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
+        logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
+
+        console = logging.StreamHandler()
+        console.setFormatter(logFormatter)
+
+        fileHandler = logging.FileHandler(filename=log_file)
+        fileHandler.setFormatter(logFormatter)
+
+        self.logger.addHandler(fileHandler)
+        self.logger.addHandler(console)
 
     def sync(self):
-        print("=======================================")
-        print("= Starting Sync of Mirror             =")
-        print("=======================================")
-        self.open_log_file()
+        self.logger.info("=======================================")
+        self.logger.info("= Starting Sync of Mirror             =")
+        self.logger.info("=======================================")
         self.update_mirrors()
         self.get_dists_indices()
         self.check_release_files()
@@ -33,7 +44,6 @@ class Mirror:
         self.update_indices()
         self.update_project_dir()
         self.gen_lslR()
-        self.log_opened.close()
 
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
@@ -46,17 +56,15 @@ class Mirror:
                 mirror_path=self.mirror_path
             )
 
-        print("Downloading all new files except indices")
+        self.logger.info("Downloading all new files except indices")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
         for line in rsync_status.stdout:
-            if self.log_opened:
-                self.log_opened.write(line)
-            print(line)
+            self.logger.debug(line)
 
         if rsync_status.returncode != 0:
-            print(rsync_command + " Failed with return code " + str(rsync_status.returncode))
+            self.logger.error(rsync_command + " Failed with return code " + str(rsync_status.returncode))
 
 
     def get_dists_indices(self):
@@ -68,14 +76,12 @@ class Mirror:
                 temp_indices=self.temp_indices
             )
 
-        print("Downloading dist indices and storing them in a temporary place")
+        self.logger.info("Downloading dist indices and storing them in a temporary place")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
         for line in rsync_status.stdout:
-            if self.log_opened:
-                self.log_opened.write(line)
-            print(line)
+            self.logger.debug(line)
 
     def update_project_dir(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
@@ -87,18 +93,16 @@ class Mirror:
                 mirror_path=self.mirror_path
             )
 
-        print("Updating 'project' directory")
+        self.logger.info("Updating 'project' directory")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
         for line in rsync_status.stdout:
-            if self.log_opened:
-                self.log_opened.write(line)
-            print(line)
+            self.logger.debug(line)
 
     def check_indices(self):
         dists_path = self.temp_indices
-        print("Gathering Indices")
+        self.logger.info("Gathering Indices")
         indices = self._get_indices(dists_path)
         for index in indices:
             self.check_index(index)
@@ -119,7 +123,7 @@ class Mirror:
                 return []
 
     def check_release_files(self):
-        print("Gathering Release Files")
+        self.logger.info("Gathering Release Files")
         release_files = self._get_release_files(self.temp_indices)
         for file in release_files:
             self.check_release_file(file)
@@ -141,7 +145,7 @@ class Mirror:
 
     def check_release_file(self, file_name):
 
-        print("Checking release file " + file_name)
+        self.logger.info("Checking release file " + file_name)
         with open(file_name) as f_stream:
             f_contents = f_stream.read()
 
@@ -165,29 +169,19 @@ class Mirror:
 
                 if os.path.isfile(file_path):
 
-                    """
-                    if self.log_opened:
-                        self.log_opened.write("Found file: " + file_path + '\n')
-                    print("Found file: " + file_path)
-                    """
                     with open(file_path, 'r') as f_stream:
                         file_path_contents = f_stream.read()
 
                     actual_md5sum = hashlib.md5(file_path_contents).hexdigest()
                     if md5sum != actual_md5sum:
-                        if self.log_opened:
-                            self.log_opened.write(
-                                    actual_md5sum + ' does not match ' + md5sum + ' for file ' + file_path + '\n'
-                                )
-                            self.log_opened.close()
-                        print(actual_md5sum + ' does not match ' + md5sum + ' for file ' + file_path)
+                        self.logger.debug(actual_md5sum + ' does not match ' + md5sum + ' for file ' + file_path)
                         sys.exit(1)
 
     def check_index(self, file_name):
         with gzip.open(file_name) as f_stream:
             f_contents = f_stream.read()
 
-        print("Checking index " + file_name)
+        self.logger.info("Checking index " + file_name)
         if file_name.endswith("Packages.gz"):
             for line in f_contents.split('\n'):
                 if line.startswith("Package:"):
@@ -200,14 +194,8 @@ class Mirror:
                         if self.log_opened:
                             self.log_opened.write("Missing file: " + file_path + '\n')
                             self.log_opened.close()
-                        print("Missing file: " + file_path)
+                        self.logger.error("Missing file: " + file_path)
                         sys.exit(1)
-                    """
-                    else:
-                        if self.log_opened:
-                            self.log_opened.write("Found file: " + file_path + '\n')
-                        print("Found file: " + file_path)
-                    """
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
@@ -218,12 +206,12 @@ class Mirror:
                 temp_indices=self.temp_indices
             )
 
-        print("updating 'indices' directory")
+        self.logger.info("updating 'indices' directory")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
     def gen_lslR(self):
-        print("Generating ls -lR file")
+        self.logger.info("Generating ls -lR file")
         ls_status = Popen("rm {mirror_path}/ls-lR.gz ; ls -lR {mirror_path} > {mirror_path}/ls-lR && gzip {mirror_path}/ls-lR".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
 
     def open_log_file(self):
