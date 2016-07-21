@@ -32,6 +32,8 @@ def main():
 
     try:
         log_file = config['log_file']
+        f = open(log_file, 'a')
+        f.close()
     except:
         log_file = None
 
