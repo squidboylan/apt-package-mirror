@@ -3,16 +3,21 @@ import yaml
 import os
 from apt_package_mirror.mirror import Mirror
 import sys
+import argparse
+
 
 def main():
-    try:
-        config_file = sys.argv[1]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-U', '--update-packages-only', dest='update_packages_only', action='store_true',
+                        default=False, help='Grab new packages only')
 
-    except:
-        config_file = "config.yaml"
+    parser.add_argument('config_file',  default='config.yaml', nargs='?',
+                        help='yaml config file that describes what mirror to copy and where to store the data')
+
+    args = parser.parse_args()
 
     try:
-        with open(config_file, "r") as file_stream:
+        with open(args.config_file, "r") as file_stream:
             config = yaml.load(file_stream)
 
     except:
@@ -42,7 +47,11 @@ def main():
                     temp_indices=temp_indices,
                     log_file=log_file)
 
-    mirror.sync()
+    if args.update_packages_only:
+        mirror.update_pool()
+
+    else:
+        mirror.sync()
 
 if __name__ == '__main__':
     main()

@@ -45,12 +45,33 @@ class Mirror:
         self.update_project_dir()
         self.gen_lslR()
 
+    def update_pool(self):
+        rsync_command = "rsync --recursive --times --links --hard-links \
+                --contimeout=10 --timeout=10 --no-motd --stats \
+                --progress \
+                -vpz rsync://{mirror_url}/pool/ {mirror_path}/pool/"
+        rsync_command = rsync_command.format(
+                mirror_url=self.mirror_url,
+                mirror_path=self.mirror_path
+            )
+
+        self.logger.info("Downloading new packages")
+        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                shell=True)
+
+        for line in rsync_status.stdout:
+            self.logger.debug(line)
+
+        if rsync_status.returncode != 0:
+            self.logger.error(rsync_command + " Failed with return code " + str(rsync_status.returncode))
+
+
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'Packages*' --exclude 'Sources*' --exclude 'Release*' \
                 --contimeout=10 --timeout=10 --no-motd --delete --stats \
-                --delay-updates \
-                -vpPz rsync://{mirror_url}/ {mirror_path}"
+                --delay-updates --progress \
+                -vpz rsync://{mirror_url}/ {mirror_path}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 mirror_path=self.mirror_path
@@ -70,7 +91,8 @@ class Mirror:
     def get_dists_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'installer*' --delete --no-motd --stats\
-                -vpPz rsync://{mirror_url}/dists/ {temp_indices}"
+                --progress \
+                -vpz rsync://{mirror_url}/dists/ {temp_indices}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 temp_indices=self.temp_indices
@@ -85,7 +107,8 @@ class Mirror:
 
     def update_project_dir(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delete -vpPz --stats --no-motd rsync://{mirror_url}/project \
+                --progress --delete -vpz --stats --no-motd \
+                rsync://{mirror_url}/project \
                 {mirror_path} && date -u > ${mirror_path}/project/trace/$(hostname -f)"
 
         rsync_command = rsync_command.format(
@@ -199,8 +222,7 @@ class Mirror:
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delay-updates \
-                -vpPz {temp_indices}/ {mirror_path}/dists"
+                --delay-updates --progress -vpz {temp_indices}/ {mirror_path}/dists"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
