@@ -68,7 +68,8 @@ class Mirror:
 
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --exclude 'Packages*' --exclude 'Sources*' --exclude 'Release*' \
+                --exclude 'Packages*' --exclude 'Sources*' \
+                --exclude 'Release*' --exclude 'ls-lR.gz' \
                 --contimeout=10 --timeout=10 --no-motd --delete --stats \
                 --delay-updates --progress \
                 -vpz rsync://{mirror_url}/ {mirror_path}"
