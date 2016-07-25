@@ -215,9 +215,6 @@ class Mirror:
                     file_name = line.split(" ")[1]
                     file_path = os.path.join(self.mirror_path, file_name)
                     if not os.path.isfile(file_path):
-                        if self.log_opened:
-                            self.log_opened.write("Missing file: " + file_path + '\n')
-                            self.log_opened.close()
                         self.logger.error("Missing file: " + file_path)
                         sys.exit(1)
 
@@ -236,7 +233,3 @@ class Mirror:
     def gen_lslR(self):
         self.logger.info("Generating ls -lR file")
         ls_status = Popen("rm {mirror_path}/ls-lR.gz ; ls -lR {mirror_path} > {mirror_path}/ls-lR && gzip {mirror_path}/ls-lR".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
-
-    def open_log_file(self):
-        if self.log_file:
-            self.log_opened = open(self.log_file, 'a')
