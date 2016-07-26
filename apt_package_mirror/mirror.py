@@ -231,6 +231,7 @@ class Mirror:
                         sys.exit(1)
 
         if file_name.endswith("Sources.gz"):
+            lines_to_check = []
             self.logger.info("Checking index " + file_name)
             with gzip.open(file_name) as f_stream:
                 f_contents = f_stream.read()
@@ -246,17 +247,22 @@ class Mirror:
                     hash_type = "MD5Sum"
 
                 elif line.startswith(" ") and hash_type == "MD5Sum":
+                    lines_to_check = lines_to_check + [line]
 
-                    line_contents = line.split()
-                    file_name = line_contents[2]
-                    md5Sum = line_contents[0]
-                    file_path = os.path.join(self.mirror_path, dir_name, file_name)
-                    if not os.path.isfile(file_path):
-                        self.logger.error("Missing file: " + file_path)
-                        sys.exit(1)
+                elif line == "":
+                    for i in lines_to_check:
+                        line_contents = i.split()
+                        file_name = line_contents[2]
+                        md5Sum = line_contents[0]
+                        file_path = os.path.join(self.mirror_path, dir_name, file_name)
+                        if not os.path.isfile(file_path):
+                            self.logger.error("Missing file: " + file_path)
+                            sys.exit(1)
 
                 elif not line.startswith(" "):
                     hash_type = None
+                    dir_name = None
+                    lines_to_check = []
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
