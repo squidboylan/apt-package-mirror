@@ -232,4 +232,4 @@ class Mirror:
 
     def gen_lslR(self):
         self.logger.info("Generating ls -lR file")
-        ls_status = Popen("rm {mirror_path}/ls-lR.gz ; ls -lR {mirror_path} > {mirror_path}/ls-lR && gzip {mirror_path}/ls-lR".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
+        ls_status = Popen("ls -lR {mirror_path} > {mirror_path}/ls-lR.new && gzip {mirror_path}/ls-lR.new && mv {mirror_path}/ls-lR.new.gz {mirror_path}/ls-lR.gz".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
