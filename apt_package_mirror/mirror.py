@@ -203,11 +203,11 @@ class Mirror:
                         sys.exit(1)
 
     def check_index(self, file_name):
-        with gzip.open(file_name) as f_stream:
-            f_contents = f_stream.read()
-
-        self.logger.info("Checking index " + file_name)
         if file_name.endswith("Packages.gz"):
+            self.logger.info("Checking index " + file_name)
+            with gzip.open(file_name) as f_stream:
+                f_contents = f_stream.read()
+
             for line in f_contents.split('\n'):
                 if line.startswith("Package:"):
                     package = line.split()[1]
@@ -215,9 +215,38 @@ class Mirror:
                 if line.startswith("Filename:"):
                     file_name = line.split(" ")[1]
                     file_path = os.path.join(self.mirror_path, file_name)
+
                     if not os.path.isfile(file_path):
                         self.logger.error("Missing file: " + file_path)
                         sys.exit(1)
+
+        if file_name.endswith("Sources.gz"):
+            self.logger.info("Checking index " + file_name)
+            with gzip.open(file_name) as f_stream:
+                f_contents = f_stream.read()
+
+            for line in f_contents.split('\n'):
+                if line.startswith("Package:"):
+                    package = line.split()[1]
+
+                elif line.startswith("Directory:"):
+                    dir_name = line.split()[1]
+
+                elif line.startswith("Files:"):
+                    hash_type = "MD5Sum"
+
+                elif line.startswith(" ") and hash_type == "MD5Sum":
+
+                    line_contents = line.split()
+                    file_name = line_contents[2]
+                    md5Sum = line_contents[0]
+                    file_path = os.path.join(self.mirror_path, dir_name, file_name)
+                    if not os.path.isfile(file_path):
+                        self.logger.error("Missing file: " + file_path)
+                        sys.exit(1)
+
+                elif not line.startswith(" "):
+                    hash_type = None
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
