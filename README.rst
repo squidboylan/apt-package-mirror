@@ -1,5 +1,5 @@
-ubuntu-mirror-tool
-=================
+apt_package_mirror
+==================
 
 A apt mirror tool that does staging to prevent breaking your mirror!
 
@@ -23,7 +23,14 @@ mirror from must support rsync. Run the script using the following
 
 .. code::
 
-    python ubuntu-mirrorpy/ubuntu-mirror.py config.yaml
+    python apt_package_mirror/__init__.py config.yaml
+
+or install it using pip and run it using the following
+
+.. code::
+
+    pip install apt_package_mirror
+    apt_package_mirror config.yaml
 
 .. Note::
 
