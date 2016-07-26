@@ -23,7 +23,7 @@ mirror from must support rsync. Run the script using the following
 
 .. code::
 
-    python apt_package_mirror/__init__.py config.yaml
+    python apt_package_mirror/__main__.py config.yaml
 
 or install it using pip and run it using the following
 

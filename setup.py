@@ -19,6 +19,6 @@ setuptools.setup(
         ],
         packages=setuptools.find_packages(),
         entry_points = {
-            'console_scripts': ['apt_package_mirror=apt_package_mirror:main'],
+            'console_scripts': ['apt_package_mirror=apt_package_mirror.__main__:main'],
         }
 )
