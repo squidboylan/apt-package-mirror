@@ -50,7 +50,7 @@ class Mirror:
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats \
                 --progress \
-                -vpz rsync://{mirror_url}/pool/ {mirror_path}/pool/"
+                -vz rsync://{mirror_url}/pool/ {mirror_path}/pool/"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 mirror_path=self.mirror_path
@@ -69,7 +69,7 @@ class Mirror:
                 --exclude 'Release*' --exclude 'ls-lR.gz' \
                 --contimeout=10 --timeout=10 --no-motd --delete --stats \
                 --delay-updates --progress \
-                -vpz rsync://{mirror_url}/ {mirror_path}"
+                -vz rsync://{mirror_url}/ {mirror_path}"
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 mirror_path=self.mirror_path
@@ -86,7 +86,11 @@ class Mirror:
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'installer*' --delete --no-motd --stats\
                 --progress \
+<<<<<<< Updated upstream
                 -vpz rsync://{mirror_url}/dists/ {temp_indices}"
+=======
+                -vz rsync://{mirror_url}/dists/ {temp_indices}/dists"
+>>>>>>> Stashed changes
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
                 temp_indices=self.temp_indices
@@ -99,9 +103,29 @@ class Mirror:
         for line in rsync_status.stdout:
             self.logger.debug(line)
 
+<<<<<<< Updated upstream
+=======
+    def get_zzz_dists(self):
+        rsync_command = "rsync --recursive --times --links --hard-links \
+                --exclude 'installer*' --delete --no-motd --stats\
+                --progress \
+                -vz rsync://{mirror_url}/zzz-dists/ {temp_indices}/zzz-dists"
+        rsync_command = rsync_command.format(
+                mirror_url=self.mirror_url,
+                temp_indices=self.temp_indices
+            )
+
+        self.logger.info("Downloading zzz-dists and storing them in a temporary place")
+        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                shell=True)
+
+        for line in rsync_status.stdout:
+            self.logger.debug(line)
+
+>>>>>>> Stashed changes
     def update_project_dir(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --progress --delete -vpz --stats --no-motd \
+                --progress --delete -vz --stats --no-motd \
                 rsync://{mirror_url}/project \
                 {mirror_path} && date -u > ${mirror_path}/project/trace/$(hostname -f)"
 
@@ -242,7 +266,7 @@ class Mirror:
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delay-updates --progress -vpz {temp_indices}/ {mirror_path}/dists"
+                --delay-updates --progress -vz {temp_indices}/ {mirror_path}/dists"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
