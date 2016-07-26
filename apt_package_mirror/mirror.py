@@ -63,10 +63,6 @@ class Mirror:
         for line in rsync_status.stdout:
             self.logger.debug(line)
 
-        if rsync_status.returncode != 0:
-            self.logger.error(rsync_command + " Failed with return code " + str(rsync_status.returncode))
-
-
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'Packages*' --exclude 'Sources*' \
@@ -85,10 +81,6 @@ class Mirror:
 
         for line in rsync_status.stdout:
             self.logger.debug(line)
-
-        if rsync_status.returncode != 0:
-            self.logger.error(rsync_command + " Failed with return code " + str(rsync_status.returncode))
-
 
     def get_dists_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
