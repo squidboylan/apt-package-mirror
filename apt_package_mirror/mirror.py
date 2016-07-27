@@ -266,13 +266,25 @@ class Mirror:
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delay-updates --progress -vz {temp_indices}/ {mirror_path}/dists"
+                --delay-updates --progress -vz {temp_indices}/dists {mirror_path}/dists"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
             )
 
-        self.logger.info("updating 'indices' directory")
+        self.logger.info("updating 'dists' directory")
+        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                shell=True)
+
+        rsync_command = "rsync --recursive --times --links --hard-links \
+                --delay-updates --progress -vz {temp_indices}/dists-zzz \
+                {mirror_path}/dists-zzz"
+        rsync_command = rsync_command.format(
+                mirror_path=self.mirror_path,
+                temp_indices=self.temp_indices
+            )
+
+        self.logger.info("updating 'dists-zzz' directory")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                 shell=True)
 
