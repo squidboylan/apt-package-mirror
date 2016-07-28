@@ -44,6 +44,12 @@ def main():
     except:
         temp_indices = None
 
+    # Check if a log_level is defined
+    try:
+        log_level = config['log_level']
+    except:
+        log_level = None
+
     # Create a file for logging in the location defined by the config file
     try:
         log_file = config['log_file']
@@ -55,7 +61,7 @@ def main():
     mirror = Mirror(mirror_path=mirror_path,
                     mirror_url=config['mirror_url'],
                     temp_indices=temp_indices,
-                    log_file=log_file)
+                    log_file=log_file, log_level=log_level)
 
     # If a -U option is used, only update the 'pool' directory. This only grabs
     # new packages

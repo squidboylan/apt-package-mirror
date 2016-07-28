@@ -11,3 +11,6 @@ temp_files_path: /tmp/ubuntu-mirror-files
 
 # Not required but will only print log info if missing
 log_file: /var/log/ubuntu-mirror
+
+# Python logging log levels, valid values are debug,info,warning,error,critical
+log_level: debug

@@ -16,16 +16,38 @@ class Mirror:
 
     # Setup class vars and logger
     def __init__(self, mirror_path, mirror_url,
-                 temp_indices=None, log_file=None):
+                 temp_indices=None, log_file=None, log_level=None):
 
         if not temp_indices:
             self.temp_indices = '/tmp/dists-indices'
+
+        if not log_level:
+            log_level='ERROR'
+
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
         self.temp_indices = temp_indices
 
         self.logger = logging.getLogger()
-        self.logger.setLevel(logging.DEBUG)
+        if log_level.upper() == 'DEBUG':
+            self.logger.setLevel(logging.DEBUG)
+
+        elif log_level.upper() == 'INFO':
+            self.logger.setLevel(logging.INFO)
+
+        elif log_level.upper() == 'WARNING':
+            self.logger.setLevel(logging.WARNING)
+
+        elif log_level.upper() == 'ERROR':
+            self.logger.setLevel(logging.ERROR)
+
+        elif log_level.upper() == 'CRITICAL':
+            self.logger.setLevel(logging.CRITICAL)
+
+        else:
+            print("Bad log level entered, defaulting to 'INFO'")
+            self.logger.setLevel(logging.INFO)
+
         log_format = "%(asctime)s [%(levelname)-5.5s]  %(message)s"
         logFormatter = logging.Formatter(log_format)
 
@@ -232,7 +254,7 @@ class Mirror:
             with bz2.BZ2File(file_name, 'r') as f_stream:
                 f_contents = f_stream.read()
 
-        self.logger.info("Checking index " + file_name)
+        self.logger.debug("Checking index " + file_name)
 
         if re.match(".*Packages(\.gz|\.bz2)?$", file_name):
             for line in f_contents.split('\n'):
@@ -306,7 +328,7 @@ class Mirror:
     # exists in our mirror and that the MD5Sums match. If they are inconsistent
     # it will lead to a broken mirror.
     def check_release_file(self, file_name):
-        self.logger.info("Checking release file " + file_name)
+        self.logger.debug("Checking release file " + file_name)
         with open(file_name) as f_stream:
             f_contents = f_stream.read()
 
