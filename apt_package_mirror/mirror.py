@@ -12,6 +12,7 @@ import sys
 
 class Mirror:
 
+    # Setup class vars and logger
     def __init__(self, mirror_path, mirror_url,
                  temp_indices=None, log_file=None):
 
@@ -35,6 +36,7 @@ class Mirror:
         self.logger.addHandler(fileHandler)
         self.logger.addHandler(console)
 
+    # Sync the whole mirror
     def sync(self):
         self.logger.info("=======================================")
         self.logger.info("= Starting Sync of Mirror             =")
@@ -49,6 +51,8 @@ class Mirror:
         self.update_project_dir()
         self.gen_lslR()
 
+    # Update the pool directory of the mirror
+    # NOTE: This does not delete old packages, so it is safe to run at any time
     def update_pool(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats \
@@ -66,6 +70,7 @@ class Mirror:
         for line in rsync_status.stdout:
             self.logger.debug(line)
 
+    # Update the entire mirror, excluding package, source, and release indices
     def update_mirrors(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'Packages*' --exclude 'Sources*' \
@@ -85,6 +90,8 @@ class Mirror:
         for line in rsync_status.stdout:
             self.logger.debug(line)
 
+    # Download the 'dists' directory and place it in a
+    # temporary place so it can be checked to make sure it is accurate
     def get_dists_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'installer*' --delete --no-motd --stats\
@@ -105,6 +112,11 @@ class Mirror:
         for line in rsync_status.stdout:
             self.logger.debug(line)
 
+    # Download the 'zzz-dists' directory and place it in a
+    # temporary place so it can be checked to make sure it is accurate
+    # NOTE: This is for Debian compatibility, this should do nothing in an
+    #       ubuntu mirror because they do not have the 'zzz-dists' dir, but
+    #       debian symlinks some things in the 'dists' dir to 'zzz-dists'
     def get_zzz_dists(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --exclude 'installer*' --delete --no-motd --stats\
@@ -124,6 +136,9 @@ class Mirror:
         for line in rsync_status.stdout:
             self.logger.debug(line)
 
+    # Update the 'project' directory, delete the files that do not exist on the
+    # mirror you are cloning from, then add an entry for our mirror in
+    # project/trace
     def update_project_dir(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --progress --delete -vz --stats --no-motd \
@@ -142,6 +157,7 @@ class Mirror:
         for line in rsync_status.stdout:
             self.logger.debug(line)
 
+    # Check that each index is accurate (Packages.gz and Sources.gz files)
     def check_indices(self):
         dists_path = self.temp_indices
         self.logger.info("Gathering Indices")
@@ -149,6 +165,8 @@ class Mirror:
         for index in indices:
             self.check_index(index)
 
+    # Find all of the 'Packages.gz' files and 'Sources.gz' files in the 'dists'
+    # directory so the check_indec() function can check their integrity
     def _get_indices(self, dir):
         if not os.path.isfile(dir):
             indices = []
@@ -164,64 +182,9 @@ class Mirror:
             else:
                 return []
 
-    def check_release_files(self):
-        self.logger.info("Gathering Release Files")
-        release_files = self._get_release_files(self.temp_indices)
-        for file in release_files:
-            self.check_release_file(file)
-
-    def _get_release_files(self, dir):
-        if not os.path.isfile(dir):
-            indices = []
-            for item in os.listdir(dir):
-                file_path = os.path.join(dir, item)
-                indices = indices + self._get_release_files(file_path)
-
-            return indices
-
-        else:
-            if dir.endswith("/Release"):
-                return [dir]
-            else:
-                return []
-
-    def check_release_file(self, file_name):
-
-        self.logger.info("Checking release file " + file_name)
-        with open(file_name) as f_stream:
-            f_contents = f_stream.read()
-
-        dir = os.path.split(file_name)[0]
-
-        hash_type = None
-        for line in f_contents.split('\n'):
-            if line.startswith("MD5Sum"):
-                hash_type = "MD5Sum"
-
-            elif line.startswith("SHA1"):
-                hash_type = "SHA1"
-
-            elif line.startswith("SHA256"):
-                hash_type = "SHA256"
-
-            elif hash_type == "MD5Sum":
-                file_to_check = line.split()[2]
-                md5sum = line.split()[0]
-                file_path = os.path.join(dir, file_to_check)
-
-                if os.path.isfile(file_path):
-
-                    with open(file_path, 'r') as f_stream:
-                        file_path_contents = f_stream.read()
-
-                    actual_md5sum = hashlib.md5(file_path_contents).hexdigest()
-                    if md5sum != actual_md5sum:
-                        self.logger.debug(
-                                actual_md5sum + ' does not match ' + md5sum +
-                                ' for file ' + file_path
-                            )
-                        sys.exit(1)
-
+    # Check that the index is accurate and all the files it says exist in our
+    # mirror actually exist (do not check the checksum of the file though as
+    # that will take too much time)
     def check_index(self, file_name):
         if file_name.endswith("Packages.gz"):
             self.logger.info("Checking index " + file_name)
@@ -275,6 +238,70 @@ class Mirror:
                     dir_name = None
                     lines_to_check = []
 
+    # Check each release file to make sure it is accurate
+    def check_release_files(self):
+        self.logger.info("Gathering Release Files")
+        release_files = self._get_release_files(self.temp_indices)
+        for file in release_files:
+            self.check_release_file(file)
+
+    # Find all the 'Release' files in the 'dists' directory
+    def _get_release_files(self, dir):
+        if not os.path.isfile(dir):
+            indices = []
+            for item in os.listdir(dir):
+                file_path = os.path.join(dir, item)
+                indices = indices + self._get_release_files(file_path)
+
+            return indices
+
+        else:
+            if dir.endswith("/Release"):
+                return [dir]
+            else:
+                return []
+
+    # Check that each index the release file says our mirror has actually
+    # exists in our mirror and that the MD5Sums match. If they are inconsistent
+    # it will lead to a broken mirror.
+    def check_release_file(self, file_name):
+        self.logger.info("Checking release file " + file_name)
+        with open(file_name) as f_stream:
+            f_contents = f_stream.read()
+
+        dir = os.path.split(file_name)[0]
+
+        hash_type = None
+        for line in f_contents.split('\n'):
+            if line.startswith("MD5Sum"):
+                hash_type = "MD5Sum"
+
+            elif line.startswith("SHA1"):
+                hash_type = "SHA1"
+
+            elif line.startswith("SHA256"):
+                hash_type = "SHA256"
+
+            elif hash_type == "MD5Sum":
+                file_to_check = line.split()[2]
+                md5sum = line.split()[0]
+                file_path = os.path.join(dir, file_to_check)
+
+                if os.path.isfile(file_path):
+
+                    with open(file_path, 'r') as f_stream:
+                        file_path_contents = f_stream.read()
+
+                    actual_md5sum = hashlib.md5(file_path_contents).hexdigest()
+                    if md5sum != actual_md5sum:
+                        self.logger.debug(
+                                actual_md5sum + ' does not match ' + md5sum +
+                                ' for file ' + file_path
+                            )
+                        sys.exit(1)
+
+    # Move the 'dists' and 'zzz-dists' into the mirror from their temporary
+    # location
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --delay-updates --progress -vz \
@@ -300,6 +327,7 @@ class Mirror:
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                              shell=True)
 
+    # Generate a new 'ls-lR.gz' file
     def gen_lslR(self):
         self.logger.info("Generating ls -lR file")
         ls_status = Popen("ls -lR {mirror_path} > {mirror_path}/ls-lR.new && \
