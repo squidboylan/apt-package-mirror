@@ -8,11 +8,16 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-U', '--update-packages-only', dest='update_packages_only', action='store_true',
+    parser.add_argument('-U', '--update-packages-only',
+                        dest='update_packages_only', action='store_true',
                         default=False, help='Grab new packages only')
 
-    parser.add_argument('config_file',  default='config.yaml', nargs='?',
-                        help='yaml config file that describes what mirror to copy and where to store the data')
+    config_file_help = ('yaml config file that describes what mirror to copy '
+                        'and where to store the data')
+    parser.add_argument(
+            'config_file',  default='config.yaml', nargs='?',
+            help=config_file_help
+        )
 
     args = parser.parse_args()
 

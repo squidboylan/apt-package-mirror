@@ -9,10 +9,11 @@ from subprocess import Popen, STDOUT, PIPE
 import logging
 import sys
 
+
 class Mirror:
 
     def __init__(self, mirror_path, mirror_url,
-            temp_indices=None, log_file=None):
+                 temp_indices=None, log_file=None):
 
         if not temp_indices:
             self.temp_indices = '/tmp/dists-indices'
@@ -22,7 +23,8 @@ class Mirror:
 
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
-        logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
+        log_format = "%(asctime)s [%(levelname)-5.5s]  %(message)s"
+        logFormatter = logging.Formatter(log_format)
 
         console = logging.StreamHandler()
         console.setFormatter(logFormatter)
@@ -59,7 +61,7 @@ class Mirror:
 
         self.logger.info("Downloading new packages")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                shell=True)
+                             shell=True)
 
         for line in rsync_status.stdout:
             self.logger.debug(line)
@@ -78,7 +80,7 @@ class Mirror:
 
         self.logger.info("Downloading all new files except indices")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                shell=True)
+                             shell=True)
 
         for line in rsync_status.stdout:
             self.logger.debug(line)
@@ -93,9 +95,12 @@ class Mirror:
                 temp_indices=self.temp_indices
             )
 
-        self.logger.info("Downloading dist indices and storing them in a temporary place")
+        self.logger.info(
+                ("Downloading dist indices and storing them "
+                 "in a temporary place")
+            )
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                shell=True)
+                             shell=True)
 
         for line in rsync_status.stdout:
             self.logger.debug(line)
@@ -110,9 +115,11 @@ class Mirror:
                 temp_indices=self.temp_indices
             )
 
-        self.logger.info("Downloading zzz-dists and storing them in a temporary place")
+        self.logger.info(
+                "Downloading zzz-dists and storing them in a temporary place"
+            )
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                shell=True)
+                             shell=True)
 
         for line in rsync_status.stdout:
             self.logger.debug(line)
@@ -120,8 +127,8 @@ class Mirror:
     def update_project_dir(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --progress --delete -vz --stats --no-motd \
-                rsync://{mirror_url}/project \
-                {mirror_path}/ && date -u > ${mirror_path}/project/trace/$(hostname -f)"
+                rsync://{mirror_url}/project {mirror_path}/ && date -u \
+                > ${mirror_path}/project/trace/$(hostname -f)"
 
         rsync_command = rsync_command.format(
                 mirror_url=self.mirror_url,
@@ -130,7 +137,7 @@ class Mirror:
 
         self.logger.info("Updating 'project' directory")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                shell=True)
+                             shell=True)
 
         for line in rsync_status.stdout:
             self.logger.debug(line)
@@ -209,7 +216,10 @@ class Mirror:
 
                     actual_md5sum = hashlib.md5(file_path_contents).hexdigest()
                     if md5sum != actual_md5sum:
-                        self.logger.debug(actual_md5sum + ' does not match ' + md5sum + ' for file ' + file_path)
+                        self.logger.debug(
+                                actual_md5sum + ' does not match ' + md5sum +
+                                ' for file ' + file_path
+                            )
                         sys.exit(1)
 
     def check_index(self, file_name):
@@ -254,7 +264,8 @@ class Mirror:
                         line_contents = i.split()
                         file_name = line_contents[2]
                         md5Sum = line_contents[0]
-                        file_path = os.path.join(self.mirror_path, dir_name, file_name)
+                        file_path = os.path.join(self.mirror_path,
+                                                 dir_name, file_name)
                         if not os.path.isfile(file_path):
                             self.logger.error("Missing file: " + file_path)
                             sys.exit(1)
@@ -266,7 +277,8 @@ class Mirror:
 
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delay-updates --progress -vz {temp_indices}/dists {mirror_path}/"
+                --delay-updates --progress -vz \
+                {temp_indices}/dists {mirror_path}/"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
@@ -274,7 +286,7 @@ class Mirror:
 
         self.logger.info("updating 'dists' directory")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                shell=True)
+                             shell=True)
 
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --delay-updates --progress -vz {temp_indices}/zzz-dists \
@@ -286,8 +298,13 @@ class Mirror:
 
         self.logger.info("updating 'zzz-dists' directory")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                shell=True)
+                             shell=True)
 
     def gen_lslR(self):
         self.logger.info("Generating ls -lR file")
-        ls_status = Popen("ls -lR {mirror_path} > {mirror_path}/ls-lR.new && gzip {mirror_path}/ls-lR.new && mv {mirror_path}/ls-lR.new.gz {mirror_path}/ls-lR.gz".format(mirror_path=self.mirror_path), stdout=PIPE, stderr=PIPE, shell=True)
+        ls_status = Popen("ls -lR {mirror_path} > {mirror_path}/ls-lR.new && \
+                gzip {mirror_path}/ls-lR.new && \
+                mv {mirror_path}/ls-lR.new.gz {mirror_path}/ls-lR.gz".format(
+                    mirror_path=self.mirror_path
+                ), stdout=PIPE, stderr=PIPE, shell=True
+            )
