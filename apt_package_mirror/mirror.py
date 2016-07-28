@@ -1,13 +1,15 @@
 from __future__ import print_function
+import bz2
 from ftplib import FTP
-import urllib
 import gzip
-import yaml
-import os
 import hashlib
-from subprocess import Popen, STDOUT, PIPE
 import logging
+import os
+import re
+from subprocess import Popen, STDOUT, PIPE
 import sys
+import urllib
+import yaml
 
 
 class Mirror:
@@ -162,11 +164,43 @@ class Mirror:
         dists_path = self.temp_indices
         self.logger.info("Gathering Indices")
         indices = self._get_indices(dists_path)
+        dict_indices = {}
         for index in indices:
-            self.check_index(index)
+            split_path = os.path.split(index)
+            dir_name = split_path[0]
+            file_name = split_path[1]
+            if dir_name not in dict_indices.keys():
+                dict_indices[dir_name] = [file_name]
+            else:
+                dict_indices[dir_name] = dict_indices[dir_name] + [file_name]
+
+        for key in dict_indices.keys():
+            if "Sources" in dict_indices[key]:
+                index = os.path.join(key, "Sources")
+                self.check_index(index)
+
+            elif "Sources.gz" in dict_indices[key]:
+                index = os.path.join(key, "Sources.gz")
+                self.check_index(index)
+
+            elif "Sources.bz2" in dict_indices[key]:
+                index = os.path.join(key, "Sources.bz2")
+                self.check_index(index)
+
+            if "Packages" in dict_indices[key]:
+                index = os.path.join(key, "Packages")
+                self.check_index(index)
+
+            elif "Packages.gz" in dict_indices[key]:
+                index = os.path.join(key, "Packages.gz")
+                self.check_index(index)
+
+            elif "Packages.bz2" in dict_indices[key]:
+                index = os.path.join(key, "Packages.bz2")
+                self.check_index(index)
 
     # Find all of the 'Packages.gz' files and 'Sources.gz' files in the 'dists'
-    # directory so the check_indec() function can check their integrity
+    # directory so the check_index() function can check their integrity
     def _get_indices(self, dir):
         if not os.path.isfile(dir):
             indices = []
@@ -177,7 +211,7 @@ class Mirror:
             return indices
 
         else:
-            if dir.endswith("Packages.gz") or dir.endswith("Sources.gz"):
+            if re.match(".*(Packages|Sources)(\.gz|\.bz2)?$", dir):
                 return [dir]
             else:
                 return []
@@ -186,11 +220,21 @@ class Mirror:
     # mirror actually exist (do not check the checksum of the file though as
     # that will take too much time)
     def check_index(self, file_name):
-        if file_name.endswith("Packages.gz"):
-            self.logger.info("Checking index " + file_name)
-            with gzip.open(file_name) as f_stream:
+        if not re.match(".*(\.gz|\.bz2)$", file_name):
+            with open(file_name, 'r') as f_stream:
                 f_contents = f_stream.read()
 
+        elif re.match(".*\.gz$", file_name):
+            with gzip.open(file_name, 'r') as f_stream:
+                f_contents = f_stream.read()
+
+        elif re.match(".*\.bz2$", file_name):
+            with bz2.BZ2File(file_name, 'r') as f_stream:
+                f_contents = f_stream.read()
+
+        self.logger.info("Checking index " + file_name)
+
+        if re.match(".*Packages(\.gz|\.bz2)?$", file_name):
             for line in f_contents.split('\n'):
                 if line.startswith("Package:"):
                     package = line.split()[1]
@@ -203,11 +247,8 @@ class Mirror:
                         self.logger.error("Missing file: " + file_path)
                         sys.exit(1)
 
-        if file_name.endswith("Sources.gz"):
+        if re.match(".*Sources(\.gz|\.bz2)?$", file_name):
             lines_to_check = []
-            self.logger.info("Checking index " + file_name)
-            with gzip.open(file_name) as f_stream:
-                f_contents = f_stream.read()
 
             for line in f_contents.split('\n'):
                 if line.startswith("Package:"):
