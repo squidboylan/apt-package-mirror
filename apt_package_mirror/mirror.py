@@ -17,7 +17,8 @@ class Mirror:
 
     # Setup class vars and logger
     def __init__(self, mirror_path, mirror_url,
-                 temp_indices=None, log_file=None, log_level=None):
+                 temp_indices=None, log_file=None, log_level=None,
+                 package_ttl=None):
 
         if not temp_indices:
             self.temp_indices = '/tmp/dists-indices'
@@ -25,6 +26,10 @@ class Mirror:
         if log_level is None:
             log_level = 'INFO'
 
+        if package_ttl is None:
+            package_ttl = 10800
+
+        self.package_ttl = package_ttl
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
         self.temp_indices = temp_indices
@@ -435,15 +440,15 @@ class Mirror:
 
         for key in file_contents.keys():
             key_num = int(key)
-            if key_num - now_num >= 10800:
+            if key_num - now_num >= self.package_ttl:
                 for package_name in file_contents[key]:
                     if package_name in file_contents[now]:
                         package_path = os.path.join(self.mirror_path,
-                                                    package_path)
+                                                    package_name)
                         self.logger.debug("Deleting " + package_path)
-                        if os.pathisfile(package_path):
+                        if os.path.isfile(package_path):
                             os.remove(package_path)
-                        if os.pathisdir(package_path):
+                        if os.path.isdir(package_path):
                             os.rmdir(package_path)
 
                         file_contents[key].remove(package_name)

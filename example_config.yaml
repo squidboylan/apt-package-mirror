@@ -14,3 +14,7 @@ log_file: /var/log/ubuntu-mirror
 
 # Python logging log levels, valid values are debug,info,warning,error,critical
 log_level: debug
+
+# Number of seconds to wait after a package is no longer on the mirror you are
+# cloning from before deleting it from your mirror default is 10800 (3 hours)
+package_ttl: 10800
