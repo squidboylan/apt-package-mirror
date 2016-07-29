@@ -8,6 +8,7 @@ import os
 import re
 from subprocess import Popen, STDOUT, PIPE
 import sys
+import time
 import urllib
 import yaml
 
@@ -21,8 +22,8 @@ class Mirror:
         if not temp_indices:
             self.temp_indices = '/tmp/dists-indices'
 
-        if not log_level:
-            log_level='ERROR'
+        if log_level is None:
+            log_level = 'INFO'
 
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
@@ -72,6 +73,7 @@ class Mirror:
         self.check_indices()
         self.update_mirrors()
         self.update_indices()
+        self.clean()
         self.update_project_dir()
         self.gen_lslR()
 
@@ -399,3 +401,60 @@ class Mirror:
                     mirror_path=self.mirror_path
                 ), stdout=PIPE, stderr=PIPE, shell=True
             )
+
+    def clean(self):
+        file_name = os.path.join(self.temp_indices, 'files_to_delete')
+        rsync_command = "rsync --recursive --times --links --hard-links \
+                --contimeout=10 --timeout=10 --no-motd --stats --delete \
+                --progress -nvz rsync://{mirror_url}/pool {mirror_path}/"
+        rsync_command = rsync_command.format(
+                mirror_url=self.mirror_url,
+                mirror_path=self.mirror_path
+            )
+
+        self.logger.info("Checking for files to delete")
+        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                             shell=True)
+
+        now_num = int(time.time())
+        now = str(now_num)
+
+        try:
+            with open(file_name, 'r') as file_stream:
+                file_contents = yaml.load(file_stream)
+                file_stream.close()
+        except:
+            file_contents = {}
+
+        file_contents[now] = []
+
+        for line in rsync_status.stdout:
+            if re.match('^deleting', line):
+                package = line.split()[1]
+                file_contents[now] = file_contents[now] + [package]
+
+        for key in file_contents.keys():
+            key_num = int(key)
+            if key_num - now_num >= 10800:
+                for package_name in file_contents[key]:
+                    if package_name in file_contents[now]:
+                        package_path = os.path.join(self.mirror_path,
+                                                    package_path)
+                        self.logger.debug("Deleting " + package_path)
+                        if os.pathisfile(package_path):
+                            os.remove(package_path)
+                        if os.pathisdir(package_path):
+                            os.rmdir(package_path)
+
+                        file_contents[key].remove(package_name)
+                        file_contents[now].remove(package_name)
+
+                    else:
+                        file_contents[key].remove(package_name)
+
+            if not file_contents[key]:
+                del file_contents[key]
+
+        with open(file_name, 'w') as file_stream:
+            file_stream.write(yaml.dump(file_contents))
+            file_stream.close()
