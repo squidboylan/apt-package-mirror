@@ -440,7 +440,7 @@ class Mirror:
 
         for key in file_contents.keys():
             key_num = int(key)
-            if key_num - now_num >= self.package_ttl:
+            if now_num - key_num >= self.package_ttl:
                 for package_name in file_contents[key]:
                     if package_name in file_contents[now]:
                         package_path = os.path.join(self.mirror_path,
@@ -452,11 +452,13 @@ class Mirror:
                             os.rmdir(package_path)
 
                         file_contents[key].remove(package_name)
-                        file_contents[now].remove(package_name)
+                        if key != now:
+                            file_contents[now].remove(package_name)
 
                     else:
                         file_contents[key].remove(package_name)
 
+        for key in file_contents.keys():
             if not file_contents[key]:
                 del file_contents[key]
 
