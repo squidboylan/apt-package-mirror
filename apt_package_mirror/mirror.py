@@ -61,21 +61,24 @@ class Mirror:
         self.logger.addHandler(fileHandler)
         self.logger.addHandler(console)
 
+        self.package_files = self.get_pool_list(os.path.join(self.mirror_path,
+            'pool'))
+
     # Sync the whole mirror
     def sync(self):
         self.logger.info("=======================================")
         self.logger.info("= Starting Sync of Mirror             =")
         self.logger.info("=======================================")
-        self.update_pool()
-        self.get_dists_indices()
-        self.get_zzz_dists()
-        self.check_release_files()
+        #self.update_pool()
+        #self.get_dists_indices()
+        #self.get_zzz_dists()
+        #self.check_release_files()
         self.check_indices()
-        self.update_mirrors()
-        self.update_indices()
+        #self.update_mirrors()
+        #self.update_indices()
         self.clean()
-        self.update_project_dir()
-        self.gen_lslR()
+        #self.update_project_dir()
+        #self.gen_lslR()
 
     # Update the pool directory of the mirror
     # NOTE: This does not delete old packages, so it is safe to run at any time
@@ -267,6 +270,8 @@ class Mirror:
                     file_name = line.split(" ")[1]
                     file_path = os.path.join(self.mirror_path, file_name)
 
+                    self.package_files.remove(file_path)
+
                     if not os.path.isfile(file_path):
                         self.logger.error("Missing file: " + file_path)
                         sys.exit(1)
@@ -294,6 +299,7 @@ class Mirror:
                         md5Sum = line_contents[0]
                         file_path = os.path.join(self.mirror_path,
                                                  dir_name, file_name)
+                        self.package_files.remove(file_path)
                         if not os.path.isfile(file_path):
                             self.logger.error("Missing file: " + file_path)
                             sys.exit(1)
@@ -403,22 +409,10 @@ class Mirror:
             )
 
     def clean(self):
-        file_name = os.path.join(self.temp_indices, 'files_to_delete')
-        rsync_command = "rsync --recursive --times --links --hard-links \
-                --contimeout=10 --timeout=10 --no-motd --stats --delete \
-                --progress -nvz rsync://{mirror_url}/pool {mirror_path}/"
-        rsync_command = rsync_command.format(
-                mirror_url=self.mirror_url,
-                mirror_path=self.mirror_path
-            )
-
-        self.logger.info("Checking for files to delete")
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                             shell=True)
-
         now_num = int(time.time())
         now = str(now_num)
 
+        file_name = os.path.join(self.temp_indices, 'files_to_delete')
         try:
             with open(file_name, 'r') as file_stream:
                 file_contents = yaml.load(file_stream)
@@ -426,25 +420,18 @@ class Mirror:
         except:
             file_contents = {}
 
-        file_contents[now] = []
-
-        for line in rsync_status.stdout:
-            if re.match('^deleting', line):
-                package = line.split()[1]
-                file_contents[now].append(package)
+        file_contents[now] = self.package_files
 
         for key in file_contents.keys():
             key_num = int(key)
             if key_num - now_num >= 10800:
                 for package_name in file_contents[key]:
                     if package_name in file_contents[now]:
-                        package_path = os.path.join(self.mirror_path,
-                                                    package_path)
-                        self.logger.debug("Deleting " + package_path)
-                        if os.pathisfile(package_path):
-                            os.remove(package_path)
-                        if os.pathisdir(package_path):
-                            os.rmdir(package_path)
+                        self.logger.debug("Deleting " + package_name)
+                        if os.pathisfile(package_name):
+                            os.remove(package_name)
+                        if os.pathisdir(package_name):
+                            os.rmdir(package_name)
 
                         file_contents[key].remove(package_name)
                         file_contents[now].remove(package_name)
@@ -458,3 +445,15 @@ class Mirror:
         with open(file_name, 'w') as file_stream:
             file_stream.write(yaml.dump(file_contents))
             file_stream.close()
+
+    def get_pool_list(self, path):
+        if os.path.isdir(path):
+            indices = []
+            for item in os.listdir(path):
+                file_path = os.path.join(path, item)
+                indices = indices + self.get_pool_list(file_path)
+
+            return indices
+
+        else:
+            return [path]
