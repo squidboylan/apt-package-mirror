@@ -18,3 +18,7 @@ log_level: debug
 # Number of seconds to wait after a package is no longer on the mirror you are
 # cloning from before deleting it from your mirror default is 10800 (3 hours)
 package_ttl: 10800
+
+# Type of hash function to use valid values are md5sum,sha256,sha1. Default is
+# SHA256
+hash_function: SHA256

@@ -18,7 +18,7 @@ class Mirror:
     # Setup class vars and logger
     def __init__(self, mirror_path, mirror_url,
                  temp_indices=None, log_file=None, log_level=None,
-                 package_ttl=None):
+                 package_ttl=None, hash_function=None):
 
         if not temp_indices:
             self.temp_indices = '/tmp/dists-indices'
@@ -28,6 +28,11 @@ class Mirror:
 
         if package_ttl is None:
             package_ttl = 10800
+
+        if hash_function is None:
+            self.hash_function = "SHA256"
+        else:
+            self.hash_function = hash_function.upper()
 
         self.package_ttl = package_ttl
         self.mirror_path = mirror_path
@@ -332,9 +337,11 @@ class Mirror:
                 return []
 
     # Check that each index the release file says our mirror has actually
-    # exists in our mirror and that the MD5Sums match. If they are inconsistent
-    # it will lead to a broken mirror.
+    # exists in our mirror and that the hash_values match. If they are
+    # inconsistent it will lead to a broken mirror.
     def check_release_file(self, file_name):
+        current_hash_type = None
+
         self.logger.debug("Checking release file " + file_name)
         with open(file_name) as f_stream:
             f_contents = f_stream.read()
@@ -344,17 +351,17 @@ class Mirror:
         hash_type = None
         for line in f_contents.split('\n'):
             if line.startswith("MD5Sum"):
-                hash_type = "MD5Sum"
+                current_hash_type = "MD5SUM"
 
             elif line.startswith("SHA1"):
-                hash_type = "SHA1"
+                current_hash_type = "SHA1"
 
             elif line.startswith("SHA256"):
-                hash_type = "SHA256"
+                current_hash_type = "SHA256"
 
-            elif hash_type == "MD5Sum":
+            elif line.startswith(" ") and self.hash_function == current_hash_type:
                 file_to_check = line.split()[2]
-                md5sum = line.split()[0]
+                hash_val = line.split()[0]
                 file_path = os.path.join(dir, file_to_check)
 
                 if os.path.isfile(file_path):
@@ -362,13 +369,35 @@ class Mirror:
                     with open(file_path, 'r') as f_stream:
                         file_path_contents = f_stream.read()
 
-                    actual_md5sum = hashlib.md5(file_path_contents).hexdigest()
-                    if md5sum != actual_md5sum:
-                        self.logger.debug(
-                                actual_md5sum + ' does not match ' + md5sum +
-                                ' for file ' + file_path
-                            )
-                        sys.exit(1)
+                    if self.hash_function == "MD5SUM":
+                        actual_md5sum = hashlib.md5(file_path_contents).hexdigest()
+                        if hash_val != actual_md5sum:
+                            self.logger.debug(
+                                    actual_md5sum + ' does not match ' +
+                                    hash_val + ' for file ' + file_path +
+                                    ' (MD5Sum)'
+                                )
+                            sys.exit(1)
+
+                    elif self.hash_function == "SHA1":
+                        actual_sha1 = hashlib.sha1(file_path_contents).hexdigest()
+                        if hash_val != actual_sha1:
+                            self.logger.debug(
+                                    actual_sha1 + ' does not match ' +
+                                    hash_val + ' for file ' + file_path +
+                                    ' (SHA1)'
+                                )
+                            sys.exit(1)
+
+                    elif self.hash_function == "SHA256":
+                        actual_sha256 = hashlib.sha256(file_path_contents).hexdigest()
+                        if hash_val != actual_sha256:
+                            self.logger.debug(
+                                    actual_sha256 + ' does not match ' +
+                                    hash_val + ' for file ' + file_path +
+                                    ' (SHA256)'
+                                )
+                            sys.exit(1)
 
     # Move the 'dists' and 'zzz-dists' into the mirror from their temporary
     # location
