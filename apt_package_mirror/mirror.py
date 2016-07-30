@@ -467,25 +467,38 @@ class Mirror:
                 package = line.split()[1]
                 file_contents[now].append(package)
 
-        for key in file_contents.keys():
-            key_num = int(key)
-            if now_num - key_num >= self.package_ttl:
-                for package_name in file_contents[key]:
-                    if package_name in file_contents[now]:
-                        package_path = os.path.join(self.mirror_path,
-                                                    package_name)
-                        self.logger.debug("Deleting " + package_path)
-                        if os.path.isfile(package_path):
-                            os.remove(package_path)
-                        if os.path.isdir(package_path):
-                            os.rmdir(package_path)
+        dirs_to_remove = []
 
-                        file_contents[key].remove(package_name)
-                        if key != now:
-                            file_contents[now].remove(package_name)
+        try:
+            for key in file_contents.keys():
+                key_num = int(key)
+                if now_num - key_num >= self.package_ttl:
+                    for package_name in file_contents[key]:
+                        if package_name in file_contents[now]:
+                            package_path = os.path.join(self.mirror_path,
+                                                        package_name)
+                            if os.path.exists(package_path):
+                                if os.path.isfile(package_path):
+                                    self.logger.debug("Deleting " + package_path)
+                                    os.remove(package_path)
+                                if os.path.isdir(package_path):
+                                    dirs_to_remove.append(package_path)
 
-                    else:
-                        file_contents[key].remove(package_name)
+                            file_contents[key].remove(package_name)
+
+                            if key != now:
+                                file_contents[now].remove(package_name)
+
+                        else:
+                            file_contents[key].remove(package_name)
+
+            for i in dirs_to_remove:
+                self.logger.debug("Deleting " + package_path)
+                os.rmdir(i)
+                del i
+
+        except OSError as e:
+            self.logger.debug(e)
 
         for key in file_contents.keys():
             if not file_contents[key]:
