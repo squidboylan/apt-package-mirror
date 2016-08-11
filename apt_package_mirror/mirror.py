@@ -79,19 +79,32 @@ class Mirror:
 
     # Sync the whole mirror
     def sync(self):
-        self.logger.info("=======================================")
-        self.logger.info("= Starting Sync of Mirror             =")
-        self.logger.info("=======================================")
-        self.update_pool()
-        self.get_dists_indices()
-        self.get_zzz_dists()
-        self.check_release_files()
-        self.check_indices()
-        self.update_mirrors()
-        self.update_indices()
-        self.clean()
-        self.update_project_dir()
-        self.gen_lslR()
+        self.lock_file = os.path.join(self.mirror_path, 'sync_in_progress')
+        if os.path.exists(self.lock_file):
+            self.logger.info("Sync already in progress")
+            sys.exit(1)
+
+        f = open(self.lock_file, 'w')
+        f.close()
+        try:
+            self.logger.info("=======================================")
+            self.logger.info("= Starting Sync of Mirror             =")
+            self.logger.info("=======================================")
+            self.update_pool()
+            self.get_dists_indices()
+            self.get_zzz_dists()
+            self.check_release_files()
+            self.check_indices()
+            self.update_mirrors()
+            self.update_indices()
+            self.clean()
+            self.update_project_dir()
+            self.gen_lslR()
+            os.remove(self.lock_file)
+        except:
+            self.logger.info("Exception caught, removing lock file")
+            os.remove(self.lock_file)
+            raise
 
     # Update the pool directory of the mirror
     # NOTE: This does not delete old packages, so it is safe to run at any time
