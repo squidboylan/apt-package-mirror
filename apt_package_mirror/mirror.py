@@ -12,6 +12,12 @@ import time
 import urllib
 import yaml
 
+class MirrorException(Exception):
+    def __init__(self, val):
+        self.val = val
+
+    def __str__(self):
+        return repr(self.val)
 
 class Mirror:
 
@@ -279,7 +285,7 @@ class Mirror:
 
                     if not os.path.isfile(file_path):
                         self.logger.error("Missing file: " + file_path)
-                        sys.exit(1)
+                        raise MirrorException("Missing file: " + file_path)
 
         if re.match(".*Sources(\.gz|\.bz2)?$", file_name):
             lines_to_check = []
@@ -306,7 +312,7 @@ class Mirror:
                                                  dir_name, file_name)
                         if not os.path.isfile(file_path):
                             self.logger.error("Missing file: " + file_path)
-                            sys.exit(1)
+                            raise MirrorException("Missing file: " + file_path)
 
                 elif not line.startswith(" "):
                     hash_type = None
@@ -377,7 +383,11 @@ class Mirror:
                                     hash_val + ' for file ' + file_path +
                                     ' (MD5Sum)'
                                 )
-                            sys.exit(1)
+                            raise MirrorException(
+                                    actual_md5sum + ' does not match ' +
+                                    hash_val + ' for file ' + file_path +
+                                    ' (MD5Sum)'
+                                )
 
                     elif self.hash_function == "SHA1":
                         actual_sha1 = hashlib.sha1(file_path_contents).hexdigest()
@@ -387,7 +397,11 @@ class Mirror:
                                     hash_val + ' for file ' + file_path +
                                     ' (SHA1)'
                                 )
-                            sys.exit(1)
+                            raise MirrorException(
+                                    actual_sha1 + ' does not match ' +
+                                    hash_val + ' for file ' + file_path +
+                                    ' (MD5Sum)'
+                                )
 
                     elif self.hash_function == "SHA256":
                         actual_sha256 = hashlib.sha256(file_path_contents).hexdigest()
@@ -397,7 +411,11 @@ class Mirror:
                                     hash_val + ' for file ' + file_path +
                                     ' (SHA256)'
                                 )
-                            sys.exit(1)
+                            raise MirrorException(
+                                    actual_sha256 + ' does not match ' +
+                                    hash_val + ' for file ' + file_path +
+                                    ' (MD5Sum)'
+                                )
 
     # Move the 'dists' and 'zzz-dists' into the mirror from their temporary
     # location
