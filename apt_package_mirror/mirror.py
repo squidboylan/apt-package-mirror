@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import logging
 import os
+import pickle
 import re
 from subprocess import Popen, STDOUT, PIPE
 import sys
@@ -44,6 +45,7 @@ class Mirror:
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
         self.temp_indices = temp_indices
+        self.indexed_packages = []
 
         self.logger = logging.getLogger()
         if log_level.upper() == 'DEBUG':
@@ -295,7 +297,7 @@ class Mirror:
                 if line.startswith("Filename:"):
                     file_name = line.split(" ")[1]
                     file_path = os.path.join(self.mirror_path, file_name)
-
+                    self.indexed_packages.append(file_name)
                     if not os.path.isfile(file_path):
                         self.logger.error("Missing file: " + file_path)
                         raise MirrorException("Missing file: " + file_path)
@@ -320,6 +322,9 @@ class Mirror:
                     for i in lines_to_check:
                         line_contents = i.split()
                         file_name = line_contents[2]
+                        self.indexed_packages.append(
+                            os.path.join(dir_name, file_name)
+                            )
                         md5Sum = line_contents[0]
                         file_path = os.path.join(self.mirror_path,
                                                  dir_name, file_name)
@@ -468,18 +473,20 @@ class Mirror:
             )
 
     def clean(self):
+        #file = open(os.path.join(self.temp_indices, 'indexed_packages'))
+        #pickle.dump(self.indexed_packages, file)
+        #file.close()
+
         file_name = os.path.join(self.temp_indices, 'files_to_delete')
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats --delete \
                 --progress -nvz rsync://{mirror_url}/pool {mirror_path}/"
         rsync_command = rsync_command.format(
-                mirror_url=self.mirror_url,
-                mirror_path=self.mirror_path
-            )
+            mirror_url=self.mirror_url, mirror_path=self.mirror_path
+        )
 
         self.logger.info("Checking for files to delete")
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                             shell=True)
+        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE, shell=True)
 
         now_num = int(time.time())
         now = str(now_num)
@@ -489,6 +496,9 @@ class Mirror:
                 file_contents = yaml.load(file_stream)
                 file_stream.close()
         except:
+            pass
+
+        if not file_contents:
             file_contents = {}
 
         file_contents[now] = []
@@ -498,43 +508,28 @@ class Mirror:
                 package = line.split()[1]
                 file_contents[now].append(package)
 
-        dirs_to_remove = []
+        for package in file_contents[now]:
+            if package not in self.indexed_packages:
+                file_path = os.path.join(self.mirror_path, package)
+                if os.path.exists(file_path):
+                    if os.path.isfile(file_path):
+                        self.logger.debug("Removing " + file_path)
+                        os.remove(file_path)
+                    elif os.path.isdir(file_path):
+                        try:
+                            os.rmdir(file_path)
+                            self.logger.debug("Removing " + file_path)
+                        except:
+                            self.logger.debug(
+                                "Would have removed " + file_path +
+                                " but it is not empty"
+                            )
 
-        try:
-            for key in file_contents.keys():
-                key_num = int(key)
-                if now_num - key_num >= self.package_ttl:
-                    for package_name in file_contents[key]:
-                        if package_name in file_contents[now]:
-                            package_path = os.path.join(self.mirror_path,
-                                                        package_name)
-                            if os.path.exists(package_path):
-                                if os.path.isfile(package_path):
-                                    self.logger.debug("Deleting " + package_path)
-                                    os.remove(package_path)
-                                if os.path.isdir(package_path):
-                                    dirs_to_remove.append(package_path)
-
-                            file_contents[key].remove(package_name)
-
-                            if key != now:
-                                file_contents[now].remove(package_name)
-
-                        else:
-                            file_contents[key].remove(package_name)
-
-            for i in dirs_to_remove:
-                self.logger.debug("Deleting " + package_path)
-                os.rmdir(i)
-                del i
-
-        except OSError as e:
-            self.logger.debug(e)
-
-        for key in file_contents.keys():
-            if not file_contents[key]:
-                del file_contents[key]
+            file_contents[now].remove(package)
 
         with open(file_name, 'w') as file_stream:
             file_stream.write(yaml.dump(file_contents))
             file_stream.close()
+
+        with open(os.path.join(self.temp_indices, 'indexed_packages'), 'w') as file_stream:
+            file_stream.write(yaml.dump(self.indexed_packages))
