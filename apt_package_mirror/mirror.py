@@ -9,6 +9,7 @@ import pickle
 import re
 from subprocess import Popen, STDOUT, PIPE
 import sys
+import threading
 import time
 import urllib
 import yaml
@@ -46,6 +47,7 @@ class Mirror:
         self.mirror_url = mirror_url
         self.temp_indices = temp_indices
         self.indexed_packages = set()
+        self.old_packages = []
 
         self.logger = logging.getLogger()
         if log_level.upper() == 'DEBUG':
@@ -95,11 +97,22 @@ class Mirror:
             self.update_pool()
             self.get_dists_indices()
             self.get_zzz_dists()
-            self.check_release_files()
-            self.check_indices()
+            threads = []
+            t1 = threading.Thread(target=self.check_release_files)
+            t2 = threading.Thread(target=self.check_indices)
+            t3 = threading.Thread(target=self.get_old_packages)
+            threads.append(t1)
+            threads.append(t2)
+            threads.append(t3)
+            t1.start()
+            t3.start()
+            t1.join()
+            t2.start()
+            t2.join()
             self.update_mirrors()
             self.update_indices()
-            self.clean()
+            t3.join()
+            self.clean_old_packages()
             self.update_project_dir()
             self.gen_lslR()
             os.remove(self.lock_file)
@@ -472,7 +485,7 @@ class Mirror:
                 ), stdout=PIPE, stderr=PIPE, shell=True
             )
 
-    def clean(self):
+    def get_old_packages(self):
         file_name = os.path.join(self.temp_indices, 'files_to_delete')
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats --delete \
@@ -487,24 +500,16 @@ class Mirror:
         now_num = int(time.time())
         now = str(now_num)
 
-        try:
-            with open(file_name, 'r') as file_stream:
-                file_contents = yaml.load(file_stream)
-                file_stream.close()
-        except:
-            pass
-
-        if not file_contents:
-            file_contents = {}
-
-        file_contents[now] = []
-
         for line in rsync_status.stdout:
             if re.match('^deleting', line):
                 package = line.split()[1]
-                file_contents[now].append(package)
+                self.old_packages.append(package)
 
-        for package in file_contents[now]:
+        self.old_packages
+
+    def clean_old_packages(self):
+        self.logger.info("Deleting old packages")
+        for package in self.old_packages:
             if package not in self.indexed_packages:
                 file_path = os.path.join(self.mirror_path, package)
                 if os.path.exists(file_path):
@@ -521,4 +526,4 @@ class Mirror:
                                 " but it is not empty"
                             )
 
-            file_contents[now].remove(package)
+            self.old_packages.remove(package)
