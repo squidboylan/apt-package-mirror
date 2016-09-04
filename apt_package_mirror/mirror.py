@@ -45,7 +45,7 @@ class Mirror:
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
         self.temp_indices = temp_indices
-        self.indexed_packages = []
+        self.indexed_packages = set()
 
         self.logger = logging.getLogger()
         if log_level.upper() == 'DEBUG':
@@ -297,7 +297,7 @@ class Mirror:
                 if line.startswith("Filename:"):
                     file_name = line.split(" ")[1]
                     file_path = os.path.join(self.mirror_path, file_name)
-                    self.indexed_packages.append(file_name)
+                    self.indexed_packages.add(file_name)
                     if not os.path.isfile(file_path):
                         self.logger.error("Missing file: " + file_path)
                         raise MirrorException("Missing file: " + file_path)
@@ -322,7 +322,7 @@ class Mirror:
                     for i in lines_to_check:
                         line_contents = i.split()
                         file_name = line_contents[2]
-                        self.indexed_packages.append(
+                        self.indexed_packages.add(
                             os.path.join(dir_name, file_name)
                             )
                         md5Sum = line_contents[0]
@@ -473,10 +473,6 @@ class Mirror:
             )
 
     def clean(self):
-        #file = open(os.path.join(self.temp_indices, 'indexed_packages'))
-        #pickle.dump(self.indexed_packages, file)
-        #file.close()
-
         file_name = os.path.join(self.temp_indices, 'files_to_delete')
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats --delete \
@@ -526,10 +522,3 @@ class Mirror:
                             )
 
             file_contents[now].remove(package)
-
-        with open(file_name, 'w') as file_stream:
-            file_stream.write(yaml.dump(file_contents))
-            file_stream.close()
-
-        with open(os.path.join(self.temp_indices, 'indexed_packages'), 'w') as file_stream:
-            file_stream.write(yaml.dump(self.indexed_packages))
