@@ -487,8 +487,7 @@ class Mirror:
         now_num = int(time.time())
         now = str(now_num)
 
-        if not file_contents:
-            file_contents = {}
+        file_contents = {}
 
         file_contents[now] = []
 
