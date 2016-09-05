@@ -81,7 +81,7 @@ class Mirror:
 
     # Sync the whole mirror
     def sync(self):
-        self.lock_file = os.path.join(self.mirror_path, 'sync_in_progress')
+        self.lock_file = os.path.join(self.temp_indices, 'sync_in_progress')
         if os.path.exists(self.lock_file):
             self.logger.info("Sync already in progress")
             sys.exit(1)
