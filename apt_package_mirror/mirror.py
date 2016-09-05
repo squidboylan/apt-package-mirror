@@ -487,13 +487,6 @@ class Mirror:
         now_num = int(time.time())
         now = str(now_num)
 
-        try:
-            with open(file_name, 'r') as file_stream:
-                file_contents = yaml.load(file_stream)
-                file_stream.close()
-        except:
-            pass
-
         if not file_contents:
             file_contents = {}
 
