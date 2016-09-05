@@ -9,6 +9,8 @@ Requirements
 An ubuntu mirror takes up about 1T worth of data currently. This tool also
 puts about 10G of data in /tmp so that it can stage the indices.
 
+This tool uses rsync, please install it using your package manager.
+
 Checks the tool makes
 ~~~~~~~~~~~~~~~~~~~~~
 
