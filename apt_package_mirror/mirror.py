@@ -418,7 +418,7 @@ class Mirror:
                             raise MirrorException(
                                     actual_sha1 + ' does not match ' +
                                     hash_val + ' for file ' + file_path +
-                                    ' (MD5Sum)'
+                                    ' (SHA1)'
                                 )
 
                     elif self.hash_function == "SHA256":
@@ -432,7 +432,7 @@ class Mirror:
                             raise MirrorException(
                                     actual_sha256 + ' does not match ' +
                                     hash_val + ' for file ' + file_path +
-                                    ' (MD5Sum)'
+                                    ' (SHA256)'
                                 )
 
     # Move the 'dists' and 'zzz-dists' into the mirror from their temporary
