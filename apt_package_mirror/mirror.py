@@ -486,8 +486,19 @@ class Mirror:
 
         now_num = int(time.time())
         now = str(now_num)
+        yaml_file = os.path.join(self.temp_indices, 'files_to_delete')
 
-        file_contents = {}
+        file_contents = None
+        try:
+            with open(yaml_file, 'r') as f_stream:
+                file_contents = yaml.load(f_stream)
+                f_stream.close()
+
+        except:
+            pass
+
+        if not file_contents:
+            file_contents = {}
 
         file_contents[now] = []
 
@@ -496,21 +507,30 @@ class Mirror:
                 package = line.split()[1]
                 file_contents[now].append(package)
 
-        for package in file_contents[now]:
-            if package not in self.indexed_packages:
-                file_path = os.path.join(self.mirror_path, package)
-                if os.path.exists(file_path):
-                    if os.path.isfile(file_path):
-                        self.logger.debug("Removing " + file_path)
-                        os.remove(file_path)
-                    elif os.path.isdir(file_path):
-                        try:
-                            os.rmdir(file_path)
-                            self.logger.debug("Removing " + file_path)
-                        except:
-                            self.logger.debug(
-                                "Would have removed " + file_path +
-                                " but it is not empty"
-                            )
+        for key in file_contents.keys():
+            for package in file_contents[key]:
+                if package not in self.indexed_packages:
+                    file_path = os.path.join(self.mirror_path, package)
+                    if int(now) - int(key) >= self.package_ttl:
+                        if os.path.exists(file_path):
+                            if os.path.isfile(file_path):
+                                self.logger.debug("Removing " + file_path)
+                                os.remove(file_path)
+                            elif os.path.isdir(file_path):
+                                try:
+                                    os.rmdir(file_path)
+                                    self.logger.debug("Removing " + file_path)
+                                except:
+                                    self.logger.debug(
+                                        "Would have removed " + file_path +
+                                        " but it is not empty"
+                                    )
 
-            file_contents[now].remove(package)
+                        file_contents[key].remove(package)
+                else:
+                    file_contents[key].remove(package)
+
+
+        with open(yaml_file, 'w') as f_stream:
+            f_stream.write(yaml.dump(file_contents))
+            f_stream.close()

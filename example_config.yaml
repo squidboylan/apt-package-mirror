@@ -18,3 +18,7 @@ log_level: debug
 # Type of hash function to use valid values are md5sum,sha256,sha1. Default is
 # SHA256
 hash_function: SHA256
+
+# How many seconds to keep packages after the mirror above has deleted them. Default is
+# 10800 seconds, 3 hours, set to a lower number if you have storage constraints
+package_ttl:  900
