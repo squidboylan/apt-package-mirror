@@ -7,6 +7,9 @@ import argparse
 
 
 def main():
+    # When files are created make them with a 022 umask
+    os.umask(022)
+
     # Add commandline options and help text for them
     parser = argparse.ArgumentParser()
     parser.add_argument('-U', '--update-packages-only',
