@@ -530,6 +530,9 @@ class Mirror:
                 else:
                     file_contents[key].remove(package)
 
+        for x in file_contents.keys():
+            if file_contents[x] == []:
+                del file_contents[x]
 
         with open(yaml_file, 'w') as f_stream:
             f_stream.write(yaml.dump(file_contents))
