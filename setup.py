@@ -7,7 +7,7 @@ setuptools.setup(
         description = 'Python script for running an apt package mirror',
         author_email = 'calebboylan@gmail.com',
         url = 'https://github.com/squidboylan/apt-package-mirror',
-        version = '1.0.1',
+        version = '1.0.2',
         classifiers = [
             'Development Status :: 5 - Production/Stable',
             'Intended Audience :: System Administrators',
