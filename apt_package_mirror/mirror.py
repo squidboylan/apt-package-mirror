@@ -92,16 +92,16 @@ class Mirror:
             self.logger.info("=======================================")
             self.logger.info("= Starting Sync of Mirror             =")
             self.logger.info("=======================================")
-            self.update_pool()
-            self.get_dists_indices()
-            self.get_zzz_dists()
+            #self.update_pool()
+            #self.get_dists_indices()
+            #self.get_zzz_dists()
             self.check_release_files()
             self.check_indices()
-            self.update_mirrors()
-            self.update_indices()
+            #self.update_mirrors()
+            #self.update_indices()
             self.clean()
-            self.update_project_dir()
-            self.gen_lslR()
+            #self.update_project_dir()
+            #self.gen_lslR()
             os.remove(self.lock_file)
         except:
             self.logger.info("Exception caught, removing lock file")
@@ -474,66 +474,20 @@ class Mirror:
 
     def clean(self):
         file_name = os.path.join(self.temp_indices, 'files_to_delete')
-        rsync_command = "rsync --recursive --times --links --hard-links \
-                --contimeout=10 --timeout=10 --no-motd --stats --delete \
-                --progress -nvz rsync://{mirror_url}/pool {mirror_path}/"
-        rsync_command = rsync_command.format(
-            mirror_url=self.mirror_url, mirror_path=self.mirror_path
-        )
-
         self.logger.info("Checking for files to delete")
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE, shell=True)
 
         now_num = int(time.time())
         now = str(now_num)
         yaml_file = os.path.join(self.temp_indices, 'files_to_delete')
 
         file_contents = None
-        try:
-            with open(yaml_file, 'r') as f_stream:
-                file_contents = yaml.load(f_stream)
-                f_stream.close()
-
-        except:
-            pass
-
         if not file_contents:
             file_contents = {}
 
-        file_contents[now] = []
+        files_to_del = set()
 
-        for line in rsync_status.stdout:
-            if re.match('^deleting', line):
-                package = line.split()[1]
-                file_contents[now].append(package)
+        for root, directories, filenames in os.walk(os.path.join(self.mirror_path, 'pool')):
+            for filename in filenames:
+                files_to_del.add(os.path.relpath(os.path.join(root, filename), self.mirror_path))
 
-        for key in file_contents.keys():
-            for package in file_contents[key]:
-                if package not in self.indexed_packages:
-                    file_path = os.path.join(self.mirror_path, package)
-                    if int(now) - int(key) >= self.package_ttl:
-                        if os.path.exists(file_path):
-                            if os.path.isfile(file_path):
-                                self.logger.debug("Removing " + file_path)
-                                os.remove(file_path)
-                            elif os.path.isdir(file_path):
-                                try:
-                                    os.rmdir(file_path)
-                                    self.logger.debug("Removing " + file_path)
-                                except:
-                                    self.logger.debug(
-                                        "Would have removed " + file_path +
-                                        " but it is not empty"
-                                    )
-
-                        file_contents[key].remove(package)
-                else:
-                    file_contents[key].remove(package)
-
-        for x in file_contents.keys():
-            if file_contents[x] == []:
-                del file_contents[x]
-
-        with open(yaml_file, 'w') as f_stream:
-            f_stream.write(yaml.dump(file_contents))
-            f_stream.close()
+        print(files_to_del.difference(self.indexed_packages))
