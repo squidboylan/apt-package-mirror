@@ -73,20 +73,15 @@ def main():
     except:
         log_file = None
 
-    mirror = Mirror(mirror_path=mirror_path,
+    mirror = Mirror(config,
+                    mirror_path=mirror_path,
                     mirror_url=config['mirror_url'],
                     temp_indices=temp_indices,
                     log_file=log_file, log_level=log_level,
-                    package_ttl=package_ttl, hash_function=hash_function)
+                    package_ttl=package_ttl,
+                    hash_function=hash_function)
 
-    # If a -U option is used, only update the 'pool' directory. This only grabs
-    # new packages
-    if args.update_packages_only:
-        mirror.update_pool()
-
-    # If a -U option is not used, attempt to update the whole mirror
-    else:
-        mirror.sync()
+    mirror.sync()
 
 if __name__ == '__main__':
     main()

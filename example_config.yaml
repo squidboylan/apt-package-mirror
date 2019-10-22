@@ -22,3 +22,16 @@ hash_function: SHA256
 # How many seconds to keep packages after the mirror above has deleted them. Default is
 # 10800 seconds, 3 hours, set to a lower number if you have storage constraints
 package_ttl:  900
+
+# These are the dirs in dists/
+distributions:
+  - stretch-updates
+
+# CPU architectures
+architectures:
+  - all
+  - amd64
+
+# examples: main, contrib, non-free
+repos:
+  - non-free
