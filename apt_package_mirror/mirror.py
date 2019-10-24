@@ -413,6 +413,17 @@ class Mirror:
             else:
                 return []
 
+    # List all files in a dir recursively
+    def _get_files(self, path):
+        if os.path.isdir(path):
+            indices = []
+            for item in os.listdir(path):
+                file_path = os.path.join(path, item)
+                indices = indices + self._get_release_files(file_path)
+            return indices
+        else:
+            return [path]
+
     # Check that each index the release file says our mirror has actually
     # exists in our mirror and that the hash_values match. If they are
     # inconsistent it will lead to a broken mirror.
