@@ -131,40 +131,35 @@ class Mirror:
                 "\narchitectures: " + str(self.architectures) + "\ndistributions: " + str(self.distributions))
         rsync_template_dist = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats \
-                --progress -vz \
-                rsync://{mirror_url}/dists/{dist}/Release* \
-                rsync://{mirror_url}/dists/{dist}/InRelease \
-                {mirror_path}/dists/{dist}/"
+                --progress -vzR \
+                rsync://{mirror_url}/./dists/{dist}/Release* \
+                rsync://{mirror_url}/./dists/{dist}/InRelease \
+                {mirror_path}/"
 
         rsync_template_zzz_dists = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats \
-                --progress \
-                -vz rsync://{mirror_url}/zzz-dists/{dist} \
-                {mirror_path}/zzz-dists/"
+                --progress -vzR \
+                rsync://{mirror_url}/./zzz-dists/{dist} \
+                {mirror_path}/"
 
         rsync_template_repo = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats \
-                --progress -vz \
-                rsync://{mirror_url}/dists/{dist}/{repo}/by-hash \
-                rsync://{mirror_url}/dists/{dist}/{repo}/*source* \
-                rsync://{mirror_url}/dists/{dist}/{repo}/debian-installer \
-                rsync://{mirror_url}/dists/{dist}/{repo}/i18n \
-                rsync://{mirror_url}/dists/{dist}/{repo}/Release* \
-                rsync://{mirror_url}/dists/{dist}/{repo}/InRelease \
-                {mirror_path}/dists/{dist}/{repo}/"
+                --progress -vzR \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/by-hash \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/*source* \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/debian-installer \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/i18n \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/Release* \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/InRelease \
+                {mirror_path}/"
 
         rsync_template_arch = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats \
-                --progress \
-                -vz rsync://{mirror_url}/dists/{dist}/{repo}/*{arch}* \
-                {mirror_path}/dists/{dist}/{repo}/"
+                --progress -vzR \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/*{arch}* \
+                {mirror_path}/"
 
         for dist in self.distributions:
-            try:
-                os.makedirs("{mirror_path}/dists/{dist}".format(mirror_path=self.temp_indices,dist=dist))
-            except OSError as e:
-                print(e)
-
             rsync_command_dist = rsync_template_dist.format(
                     mirror_url=self.mirror_url,
                     mirror_path=self.temp_indices,
@@ -173,11 +168,6 @@ class Mirror:
             rsync_status = Popen(rsync_command_dist, stdout=PIPE, stderr=PIPE, shell=True)
             for line in rsync_status.stdout:
                 self.logger.debug(line)
-
-            try:
-                os.makedirs("{mirror_path}/zzz-dists/{dist}".format(mirror_path=self.temp_indices,dist=dist))
-            except OSError as e:
-                print(e)
 
             rsync_command_zzz_dists = rsync_template_zzz_dists.format(
                     mirror_url=self.mirror_url,
@@ -189,11 +179,6 @@ class Mirror:
                 self.logger.debug(line)
 
             for repo in self.repos:
-                try:
-                    os.makedirs("{mirror_path}/dists/{dist}/{repo}".format(mirror_path=self.temp_indices,dist=dist,repo=repo))
-                except OSError as e:
-                    print(e)
-
                 rsync_command_repo = rsync_template_repo.format(
                         mirror_url=self.mirror_url,
                         mirror_path=self.temp_indices,
@@ -298,9 +283,9 @@ class Mirror:
     # that will take too much time)
     def check_packages_file(self, file_name):
         rsync_template = "rsync --times --links --hard-links \
-                --contimeout=10 --timeout=10 --no-motd \
-                -vz rsync://{mirror_url}/{file_path} \
-                {mirror_path}/{file_path}"
+                --contimeout=10 --timeout=10 --no-motd -vzR \
+                rsync://{mirror_url}/./{file_path} \
+                {mirror_path}/"
         if not re.match(".*(\.gz|\.bz2)$", file_name):
             with open(file_name, 'r') as f_stream:
                 f_contents = f_stream.read()
@@ -322,11 +307,6 @@ class Mirror:
             if line.startswith("Filename:"):
                 file_name = line.split(" ")[1]
                 file_path = os.path.join(self.mirror_path, file_name)
-
-                try:
-                    os.makedirs(os.path.dirname(file_path))
-                except OSError as e:
-                    pass
 
                 rsync_command = rsync_template.format(
                         mirror_url=self.mirror_url,
@@ -350,9 +330,9 @@ class Mirror:
     # that will take too much time)
     def check_sources_file(self, file_name):
         rsync_template = "rsync --times --links --hard-links \
-                --contimeout=10 --timeout=10 --no-motd \
-                -vz rsync://{mirror_url}/{file_path} \
-                {mirror_path}/{file_path}"
+                --contimeout=10 --timeout=10 --no-motd -vzR \
+                rsync://{mirror_url}/./{file_path} \
+                {mirror_path}/"
 
         if not re.match(".*(\.gz|\.bz2)$", file_name):
             with open(file_name, 'r') as f_stream:
@@ -389,11 +369,6 @@ class Mirror:
                     md5Sum = line_contents[0]
                     file_path = os.path.join(self.mirror_path,
                                              dir_name, file_name)
-
-                    try:
-                        os.makedirs(os.path.dirname(file_path))
-                    except OSError as e:
-                        pass
 
                     rsync_command = rsync_template.format(
                             mirror_url=self.mirror_url,
