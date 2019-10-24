@@ -27,41 +27,6 @@ class Mirror:
                  temp_indices=None, log_file=None, log_level=None,
                  package_ttl=None, hash_function=None):
 
-        if not temp_indices:
-            self.temp_indices = '/tmp/dists-indices'
-
-        if log_level is None:
-            log_level = 'INFO'
-
-        if package_ttl is None:
-            package_ttl = 10800
-
-        if hash_function is None:
-            self.hash_function = "SHA256"
-        else:
-            self.hash_function = hash_function.upper()
-
-        if 'distributions' in config.keys():
-            self.distributions = config['distributions']
-        else:
-            self.distrubutions = None
-
-        if 'architectures' in config.keys():
-            self.architectures = config['architectures']
-        else:
-            self.architectures = None
-
-        if 'repos' in config.keys():
-            self.repos = config['repos']
-        else:
-            self.repos = None
-
-        self.package_ttl = package_ttl
-        self.mirror_path = mirror_path
-        self.mirror_url = mirror_url
-        self.temp_indices = temp_indices
-        self.indexed_packages = set()
-
         self.logger = logging.getLogger()
         if log_level.upper() == 'DEBUG':
             self.logger.setLevel(logging.DEBUG)
@@ -94,6 +59,50 @@ class Mirror:
         self.logger.addHandler(fileHandler)
         self.logger.addHandler(console)
 
+        if not temp_indices:
+            self.temp_indices = '/tmp/dists-indices'
+
+        if log_level is None:
+            log_level = 'INFO'
+
+        if package_ttl is None:
+            package_ttl = 10800
+
+        if hash_function is None:
+            self.hash_function = "SHA256"
+        else:
+            self.hash_function = hash_function.upper()
+
+        if 'distributions' in config.keys():
+            if type(config['distributions']) is list:
+                self.distributions = config['distributions']
+            else:
+                self.logger.error("the 'distributions' option must be a list")
+        else:
+            self.distributions = ['*']
+
+        if 'architectures' in config.keys():
+            if type(config['architectures']) is list:
+                self.architectures = config['architectures']
+            else:
+                self.logger.error("the 'architectures' option must be a list")
+        else:
+            self.architectures = ['*']
+
+        if 'repos' in config.keys():
+            if type(config['architectures']) is list:
+                self.repos = config['repos']
+            else:
+                self.logger.error("the 'repos' option must be a list")
+        else:
+            self.repos = ['*']
+
+        self.package_ttl = package_ttl
+        self.mirror_path = mirror_path
+        self.mirror_url = mirror_url
+        self.temp_indices = temp_indices
+        self.indexed_packages = set()
+
     # Sync the whole mirror
     def sync(self):
         self.lock_file = os.path.join(self.temp_indices, 'sync_in_progress')
@@ -108,6 +117,9 @@ class Mirror:
             self.logger.info("= Starting Sync of Mirror             =")
             self.logger.info("=======================================")
             self.update_dists()
+            self.update_project_dir()
+            self.check_release_files()
+            self.check_indices()
             os.remove(self.lock_file)
         except:
             self.logger.info("Exception caught, removing lock file")
@@ -204,91 +216,6 @@ class Mirror:
                     for line in rsync_status.stdout:
                         self.logger.debug(line)
 
-    # Update the pool directory of the mirror
-    # NOTE: This does not delete old packages, so it is safe to run at any time
-    def update_pool(self):
-        rsync_command = "rsync --recursive --times --links --hard-links \
-                --contimeout=10 --timeout=10 --no-motd --stats \
-                --progress \
-                -vz rsync://{mirror_url}/pool {mirror_path}/"
-        rsync_command = rsync_command.format(
-                mirror_url=self.mirror_url,
-                mirror_path=self.mirror_path
-            )
-
-        self.logger.info("Downloading new packages")
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                             shell=True)
-
-        for line in rsync_status.stdout:
-            self.logger.debug(line)
-
-    # Update the entire mirror, excluding package, source, and release indices
-    def update_mirrors(self):
-        rsync_command = "rsync --recursive --times --links --hard-links \
-                --exclude 'Packages*' --exclude 'Sources*' \
-                --exclude 'Release*' --exclude 'ls-lR.gz' --exclude 'pool' \
-                --contimeout=10 --timeout=10 --no-motd --delete --stats \
-                --delay-updates --progress \
-                -vz rsync://{mirror_url}/ {mirror_path}/"
-        rsync_command = rsync_command.format(
-                mirror_url=self.mirror_url,
-                mirror_path=self.mirror_path
-            )
-
-        self.logger.info("Downloading all new files except indices")
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                             shell=True)
-
-        for line in rsync_status.stdout:
-            self.logger.debug(line)
-
-    # Download the 'dists' directory and place it in a
-    # temporary place so it can be checked to make sure it is accurate
-    def get_dists_indices(self):
-        rsync_command = "rsync --recursive --times --links --hard-links \
-                --exclude 'installer*' --delete --no-motd --stats\
-                --progress \
-                -vz rsync://{mirror_url}/dists {temp_indices}/"
-        rsync_command = rsync_command.format(
-                mirror_url=self.mirror_url,
-                temp_indices=self.temp_indices
-            )
-
-        self.logger.info(
-                ("Downloading dist indices and storing them "
-                 "in a temporary place")
-            )
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                             shell=True)
-
-        for line in rsync_status.stdout:
-            self.logger.debug(line)
-
-    # Download the 'zzz-dists' directory and place it in a
-    # temporary place so it can be checked to make sure it is accurate
-    # NOTE: This is for Debian compatibility, this should do nothing in an
-    #       ubuntu mirror because they do not have the 'zzz-dists' dir, but
-    #       debian symlinks some things in the 'dists' dir to 'zzz-dists'
-    def get_zzz_dists(self):
-        rsync_command = "rsync --recursive --times --links --hard-links \
-                --exclude 'installer*' --delete --no-motd --stats\
-                --progress \
-                -vz rsync://{mirror_url}/zzz-dists {temp_indices}/"
-        rsync_command = rsync_command.format(
-                mirror_url=self.mirror_url,
-                temp_indices=self.temp_indices
-            )
-
-        self.logger.info(
-                "Downloading zzz-dists and storing them in a temporary place"
-            )
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                             shell=True)
-
-        for line in rsync_status.stdout:
-            self.logger.debug(line)
-
     # Update the 'project' directory, delete the files that do not exist on the
     # mirror you are cloning from, then add an entry for our mirror in
     # project/trace
@@ -312,9 +239,8 @@ class Mirror:
 
     # Check that each index is accurate (Packages.gz and Sources.gz files)
     def check_indices(self):
-        dists_path = self.temp_indices
         self.logger.info("Gathering Indices")
-        indices = self._get_indices(dists_path)
+        indices = self._get_indices(self.temp_indices)
         dict_indices = {}
         for index in indices:
             split_path = os.path.split(index)
@@ -328,27 +254,27 @@ class Mirror:
         for key in dict_indices.keys():
             if "Sources" in dict_indices[key]:
                 index = os.path.join(key, "Sources")
-                self.check_index(index)
+                self.check_sources_file(index)
 
             elif "Sources.gz" in dict_indices[key]:
                 index = os.path.join(key, "Sources.gz")
-                self.check_index(index)
+                self.check_sources_file(index)
 
             elif "Sources.bz2" in dict_indices[key]:
                 index = os.path.join(key, "Sources.bz2")
-                self.check_index(index)
+                self.check_sources_file(index)
 
             if "Packages" in dict_indices[key]:
                 index = os.path.join(key, "Packages")
-                self.check_index(index)
+                self.check_packages_file(index)
 
             elif "Packages.gz" in dict_indices[key]:
                 index = os.path.join(key, "Packages.gz")
-                self.check_index(index)
+                self.check_packages_file(index)
 
             elif "Packages.bz2" in dict_indices[key]:
                 index = os.path.join(key, "Packages.bz2")
-                self.check_index(index)
+                self.check_packages_file(index)
 
     # Find all of the 'Packages.gz' files and 'Sources.gz' files in the 'dists'
     # directory so the check_index() function can check their integrity
@@ -370,7 +296,11 @@ class Mirror:
     # Check that the index is accurate and all the files it says exist in our
     # mirror actually exist (do not check the checksum of the file though as
     # that will take too much time)
-    def check_index(self, file_name):
+    def check_packages_file(self, file_name):
+        rsync_template = "rsync --times --links --hard-links \
+                --contimeout=10 --timeout=10 --no-motd \
+                -vz rsync://{mirror_url}/{file_path} \
+                {mirror_path}/{file_path}"
         if not re.match(".*(\.gz|\.bz2)$", file_name):
             with open(file_name, 'r') as f_stream:
                 f_contents = f_stream.read()
@@ -385,53 +315,105 @@ class Mirror:
 
         self.logger.debug("Checking index " + file_name)
 
-        if re.match(".*Packages(\.gz|\.bz2)?$", file_name):
-            for line in f_contents.split('\n'):
-                if line.startswith("Package:"):
-                    package = line.split()[1]
+        for line in f_contents.split('\n'):
+            if line.startswith("Package:"):
+                package = line.split()[1]
 
-                if line.startswith("Filename:"):
-                    file_name = line.split(" ")[1]
-                    file_path = os.path.join(self.mirror_path, file_name)
+            if line.startswith("Filename:"):
+                file_name = line.split(" ")[1]
+                file_path = os.path.join(self.mirror_path, file_name)
+
+                try:
+                    os.makedirs(os.path.dirname(file_path))
+                except OSError as e:
+                    pass
+
+                rsync_command = rsync_template.format(
+                        mirror_url=self.mirror_url,
+                        mirror_path=self.mirror_path,
+                        file_path=file_name
+                    )
+                rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                                     shell=True)
+
+                for line in rsync_status.stdout:
+                    self.logger.debug(line)
+
+                self.indexed_packages.add(file_name)
+
+                if not os.path.isfile(file_path):
+                    self.logger.error("Missing file: " + file_path)
+                    raise MirrorException("Missing file: " + file_path)
+
+    # Check that the index is accurate and all the files it says exist in our
+    # mirror actually exist (do not check the checksum of the file though as
+    # that will take too much time)
+    def check_sources_file(self, file_name):
+        rsync_template = "rsync --times --links --hard-links \
+                --contimeout=10 --timeout=10 --no-motd \
+                -vz rsync://{mirror_url}/{file_path} \
+                {mirror_path}/{file_path}"
+
+        if not re.match(".*(\.gz|\.bz2)$", file_name):
+            with open(file_name, 'r') as f_stream:
+                f_contents = f_stream.read()
+
+        elif re.match(".*\.gz$", file_name):
+            with gzip.open(file_name, 'r') as f_stream:
+                f_contents = f_stream.read()
+
+        elif re.match(".*\.bz2$", file_name):
+            with bz2.BZ2File(file_name, 'r') as f_stream:
+                f_contents = f_stream.read()
+
+        lines_to_check = []
+
+        for line in f_contents.split('\n'):
+            if line.startswith("Package:"):
+                package = line.split()[1]
+
+            elif line.startswith("Directory:"):
+                dir_name = line.split()[1]
+
+            elif line.startswith("Files:"):
+                hash_type = "MD5Sum"
+
+            elif line.startswith(" ") and hash_type == "MD5Sum":
+                lines_to_check = lines_to_check + [line]
+
+            elif line == "":
+                for i in lines_to_check:
+                    line_contents = i.split()
+                    file_name = os.path.join(dir_name, line_contents[2])
                     self.indexed_packages.add(file_name)
+                    md5Sum = line_contents[0]
+                    file_path = os.path.join(self.mirror_path,
+                                             dir_name, file_name)
+
+                    try:
+                        os.makedirs(os.path.dirname(file_path))
+                    except OSError as e:
+                        pass
+
+                    rsync_command = rsync_template.format(
+                            mirror_url=self.mirror_url,
+                            mirror_path=self.mirror_path,
+                            file_path=file_name
+                        )
+                    rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                                         shell=True)
+
+                    for line in rsync_status.stdout:
+                        self.logger.debug(line)
+
                     if not os.path.isfile(file_path):
                         self.logger.error("Missing file: " + file_path)
                         raise MirrorException("Missing file: " + file_path)
 
-        if re.match(".*Sources(\.gz|\.bz2)?$", file_name):
-            lines_to_check = []
-
-            for line in f_contents.split('\n'):
-                if line.startswith("Package:"):
-                    package = line.split()[1]
-
-                elif line.startswith("Directory:"):
-                    dir_name = line.split()[1]
-
-                elif line.startswith("Files:"):
-                    hash_type = "MD5Sum"
-
-                elif line.startswith(" ") and hash_type == "MD5Sum":
-                    lines_to_check = lines_to_check + [line]
-
-                elif line == "":
-                    for i in lines_to_check:
-                        line_contents = i.split()
-                        file_name = line_contents[2]
-                        self.indexed_packages.add(
-                            os.path.join(dir_name, file_name)
-                            )
-                        md5Sum = line_contents[0]
-                        file_path = os.path.join(self.mirror_path,
-                                                 dir_name, file_name)
-                        if not os.path.isfile(file_path):
-                            self.logger.error("Missing file: " + file_path)
-                            raise MirrorException("Missing file: " + file_path)
-
-                elif not line.startswith(" "):
-                    hash_type = None
-                    dir_name = None
-                    lines_to_check = []
+            elif not line.startswith(" "):
+                hash_type = None
+                dir_name = None
+                lines_to_check = []
 
     # Check each release file to make sure it is accurate
     def check_release_files(self):
@@ -485,51 +467,14 @@ class Mirror:
                 file_path = os.path.join(dir, file_to_check)
 
                 if os.path.isfile(file_path):
-
-                    with open(file_path, 'r') as f_stream:
-                        file_path_contents = f_stream.read()
-
                     if self.hash_function == "MD5SUM":
-                        actual_md5sum = hashlib.md5(file_path_contents).hexdigest()
-                        if hash_val != actual_md5sum:
-                            self.logger.debug(
-                                    actual_md5sum + ' does not match ' +
-                                    hash_val + ' for file ' + file_path +
-                                    ' (MD5Sum)'
-                                )
-                            raise MirrorException(
-                                    actual_md5sum + ' does not match ' +
-                                    hash_val + ' for file ' + file_path +
-                                    ' (MD5Sum)'
-                                )
+                        self.check_md5(file_path, hash_val)
 
                     elif self.hash_function == "SHA1":
-                        actual_sha1 = hashlib.sha1(file_path_contents).hexdigest()
-                        if hash_val != actual_sha1:
-                            self.logger.debug(
-                                    actual_sha1 + ' does not match ' +
-                                    hash_val + ' for file ' + file_path +
-                                    ' (SHA1)'
-                                )
-                            raise MirrorException(
-                                    actual_sha1 + ' does not match ' +
-                                    hash_val + ' for file ' + file_path +
-                                    ' (SHA1)'
-                                )
+                        self.check_sha1(file_path, hash_val)
 
                     elif self.hash_function == "SHA256":
-                        actual_sha256 = hashlib.sha256(file_path_contents).hexdigest()
-                        if hash_val != actual_sha256:
-                            self.logger.debug(
-                                    actual_sha256 + ' does not match ' +
-                                    hash_val + ' for file ' + file_path +
-                                    ' (SHA256)'
-                                )
-                            raise MirrorException(
-                                    actual_sha256 + ' does not match ' +
-                                    hash_val + ' for file ' + file_path +
-                                    ' (SHA256)'
-                                )
+                        self.check_sha256(file_path, hash_val)
 
     # Move the 'dists' and 'zzz-dists' into the mirror from their temporary
     # location
@@ -568,68 +513,54 @@ class Mirror:
                 ), stdout=PIPE, stderr=PIPE, shell=True
             )
 
-    def clean(self):
-        file_name = os.path.join(self.temp_indices, 'files_to_delete')
-        rsync_command = "rsync --recursive --times --links --hard-links \
-                --contimeout=10 --timeout=10 --no-motd --stats --delete \
-                --progress -nvz rsync://{mirror_url}/pool {mirror_path}/"
-        rsync_command = rsync_command.format(
-            mirror_url=self.mirror_url, mirror_path=self.mirror_path
-        )
+    def check_md5(self, file_path, hash_val):
+        with open(file_path, 'r') as f_stream:
+            contents = f_stream.read()
 
-        self.logger.info("Checking for files to delete")
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE, shell=True)
+        actual_md5sum = hashlib.md5(contents).hexdigest()
+        if hash_val != actual_md5sum:
+            self.logger.debug(
+                    actual_md5sum + ' does not match ' +
+                    hash_val + ' for file ' + file_path +
+                    ' (MD5Sum)'
+                )
+            raise MirrorException(
+                    actual_md5sum + ' does not match ' +
+                    hash_val + ' for file ' + file_path +
+                    ' (MD5Sum)'
+                )
 
-        now_num = int(time.time())
-        now = str(now_num)
-        yaml_file = os.path.join(self.temp_indices, 'files_to_delete')
+    def check_sha1(self, file_path, hash_val):
+        with open(file_path, 'r') as f_stream:
+            contents = f_stream.read()
 
-        file_contents = None
-        try:
-            with open(yaml_file, 'r') as f_stream:
-                file_contents = yaml.load(f_stream)
-                f_stream.close()
+        actual_sha1 = hashlib.sha1(contents).hexdigest()
+        if hash_val != actual_sha1:
+            self.logger.debug(
+                    actual_sha1 + ' does not match ' +
+                    hash_val + ' for file ' + file_path +
+                    ' (SHA1)'
+                )
+            raise MirrorException(
+                    actual_sha1 + ' does not match ' +
+                    hash_val + ' for file ' + file_path +
+                    ' (SHA1)'
+                )
 
-        except:
-            pass
+    def check_sha256(self, file_path, hash_val):
+        with open(file_path, 'r') as f_stream:
+            contents = f_stream.read()
 
-        if not file_contents:
-            file_contents = {}
+        actual_sha256 = hashlib.sha256(contents).hexdigest()
+        if hash_val != actual_sha256:
+            self.logger.debug(
+                    actual_sha256 + ' does not match ' +
+                    hash_val + ' for file ' + file_path +
+                    ' (SHA256)'
+                )
+            raise MirrorException(
+                    actual_sha256 + ' does not match ' +
+                    hash_val + ' for file ' + file_path +
+                    ' (SHA256)'
+                )
 
-        file_contents[now] = []
-
-        for line in rsync_status.stdout:
-            if re.match('^deleting', line):
-                package = line.split()[1]
-                file_contents[now].append(package)
-
-        for key in file_contents.keys():
-            for package in file_contents[key]:
-                if package not in self.indexed_packages:
-                    file_path = os.path.join(self.mirror_path, package)
-                    if int(now) - int(key) >= self.package_ttl:
-                        if os.path.exists(file_path):
-                            if os.path.isfile(file_path):
-                                self.logger.debug("Removing " + file_path)
-                                os.remove(file_path)
-                            elif os.path.isdir(file_path):
-                                try:
-                                    os.rmdir(file_path)
-                                    self.logger.debug("Removing " + file_path)
-                                except:
-                                    self.logger.debug(
-                                        "Would have removed " + file_path +
-                                        " but it is not empty"
-                                    )
-
-                        file_contents[key].remove(package)
-                else:
-                    file_contents[key].remove(package)
-
-        for x in file_contents.keys():
-            if file_contents[x] == []:
-                del file_contents[x]
-
-        with open(yaml_file, 'w') as f_stream:
-            f_stream.write(yaml.dump(file_contents))
-            f_stream.close()
