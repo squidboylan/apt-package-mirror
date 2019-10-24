@@ -120,6 +120,9 @@ class Mirror:
             self.update_project_dir()
             self.check_release_files()
             self.check_indices()
+            self.update_indices()
+            self.gen_lslR()
+            self.remove_old_packages()
             os.remove(self.lock_file)
         except:
             self.logger.info("Exception caught, removing lock file")
@@ -300,30 +303,39 @@ class Mirror:
 
         self.logger.debug("Checking index " + file_name)
 
-        for line in f_contents.split('\n'):
-            if line.startswith("Package:"):
-                package = line.split()[1]
+        for package_block in f_contents.split('\n\n'):
+            package_info = self.process_package_data(package_block)
 
-            if line.startswith("Filename:"):
-                file_name = line.split(" ")[1]
-                file_path = os.path.join(self.mirror_path, file_name)
-
+            # If the package has a file , then rsync the file
+            if 'relative_path' in package_info.keys():
+                self.logger.debug("Downloading: " + package_info['relative_path'])
                 rsync_command = rsync_template.format(
                         mirror_url=self.mirror_url,
                         mirror_path=self.mirror_path,
-                        file_path=file_name
+                        file_path=package_info['relative_path']
                     )
                 rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                                     shell=True)
+                        shell=True)
 
-                for line in rsync_status.stdout:
-                    self.logger.debug(line)
+                rsync_status.wait()
 
-                self.indexed_packages.add(file_name)
+                self.indexed_packages.add(package_info['relative_path'])
 
-                if not os.path.isfile(file_path):
-                    self.logger.error("Missing file: " + file_path)
-                    raise MirrorException("Missing file: " + file_path)
+                if not os.path.isfile(package_info['full_path']):
+                    self.logger.error("Missing file: " + package_info['full_path'])
+                    raise MirrorException("Missing file: " + package_info['full_path'])
+
+    def process_package_data(self, package_data):
+        package_info = {}
+        for line in package_data.split('\n'):
+            if line.startswith("Package:"):
+                package_info['package'] = line.split()[1]
+
+            if line.startswith("Filename:"):
+                package_info['relative_path'] = line.split(" ")[1]
+                package_info['full_path'] = os.path.join(self.mirror_path, package_info['relative_path'])
+
+        return package_info
 
     # Check that the index is accurate and all the files it says exist in our
     # mirror actually exist (do not check the checksum of the file though as
@@ -348,47 +360,50 @@ class Mirror:
 
         lines_to_check = []
 
-        for line in f_contents.split('\n'):
+        for block in f_contents.split('\n\n'):
+            source_info = self.process_source_data(block)
+            for i in source_info['files']:
+                relative_path = os.path.join(source_info['directory'], i)
+                self.logger.debug("Downloading: " + relative_path)
+                self.indexed_packages.add(relative_path)
+                full_path = os.path.join(self.mirror_path, relative_path)
+
+                rsync_command = rsync_template.format(
+                        mirror_url=self.mirror_url,
+                        mirror_path=self.mirror_path,
+                        file_path=relative_path
+                    )
+                rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                                     shell=True)
+
+                rsync_status.wait()
+
+                if not os.path.isfile(full_path):
+                    self.logger.error("Missing file: " + full_path)
+                    raise MirrorException("Missing file: " + full_path)
+
+    def process_source_data(self, source_data):
+        source_info = {'files': []}
+        last_line_files = False
+        for line in source_data.split('\n'):
             if line.startswith("Package:"):
-                package = line.split()[1]
+                source_info['package'] = line.split()[1]
+                last_line_files = False
 
             elif line.startswith("Directory:"):
-                dir_name = line.split()[1]
+                source_info['directory'] = line.split()[1]
+                last_line_files = False
 
             elif line.startswith("Files:"):
-                hash_type = "MD5Sum"
+                last_line_files = True
 
-            elif line.startswith(" ") and hash_type == "MD5Sum":
-                lines_to_check = lines_to_check + [line]
+            elif line.startswith(" ") and last_line_files == True:
+                source_info['files'] = source_info['files'] + [line.split()[2]]
+            else:
+                last_line_files = False
 
-            elif line == "":
-                for i in lines_to_check:
-                    line_contents = i.split()
-                    file_name = os.path.join(dir_name, line_contents[2])
-                    self.indexed_packages.add(file_name)
-                    md5Sum = line_contents[0]
-                    file_path = os.path.join(self.mirror_path,
-                                             dir_name, file_name)
+        return source_info
 
-                    rsync_command = rsync_template.format(
-                            mirror_url=self.mirror_url,
-                            mirror_path=self.mirror_path,
-                            file_path=file_name
-                        )
-                    rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                                         shell=True)
-
-                    for line in rsync_status.stdout:
-                        self.logger.debug(line)
-
-                    if not os.path.isfile(file_path):
-                        self.logger.error("Missing file: " + file_path)
-                        raise MirrorException("Missing file: " + file_path)
-
-            elif not line.startswith(" "):
-                hash_type = None
-                dir_name = None
-                lines_to_check = []
 
     # Check each release file to make sure it is accurate
     def check_release_files(self):
@@ -499,6 +514,39 @@ class Mirror:
                 ), stdout=PIPE, stderr=PIPE, shell=True
             )
 
+    def remove_old_packages(self):
+        actual_packages = set(self._get_files(os.path.join(self.mirror_path, 'pool')))
+        old_files = actual_packages - self.indexed_packages
+        yaml_file = os.path.join(self.temp_indices, 'files_to_delete')
+        now_num = int(time.time())
+        now = str(now_num)
+
+        # Load the file with all the packages that are no longer indexed
+        yaml_data = {}
+        try:
+            with open(yaml_file, 'r') as f_stream:
+                yaml_data = yaml.load(f_stream)
+                f_stream.close()
+        except:
+            pass
+
+        # Check each unindexed file, if it's been marked in a previous run and
+        # has been unindexed for long enough, delete it, Also clean up empty
+        # directories if there are any
+        for f in old_files:
+            if f in yaml_data.keys():
+                time_marked = int(yaml_data[f])
+                if now_num - time_marked >= self.package_ttl:
+                    full_path = os.path.join(self.mirror_path, f)
+                    self.logger.debug("Removing: ")
+                    #os.remove(full_path)
+            else:
+                yaml_data[f] = now
+
+        with open(yaml_file, 'w') as f_stream:
+            f_stream.write(yaml.dump(yaml_data))
+            f_stream.close()
+
     def check_md5(self, file_path, hash_val):
         with open(file_path, 'r') as f_stream:
             contents = f_stream.read()
@@ -550,3 +598,14 @@ class Mirror:
                     ' (SHA256)'
                 )
 
+
+    # List all files in a dir recursively
+    def _get_files(self, path):
+        if os.path.isdir(path):
+            indices = []
+            for item in os.listdir(path):
+                file_path = os.path.join(path, item)
+                indices = indices + self._get_release_files(file_path)
+            return indices
+        else:
+            return [path]
