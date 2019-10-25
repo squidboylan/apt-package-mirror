@@ -154,7 +154,6 @@ class Mirror:
                 --progress -vzR \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/by-hash \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/*source* \
-                rsync://{mirror_url}/./dists/{dist}/{repo}/debian-installer \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/i18n \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/Release* \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/InRelease \
@@ -163,6 +162,7 @@ class Mirror:
         rsync_template_arch = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats \
                 --progress -vzR \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/debian-installer/*{arch}* \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/*{arch}* \
                 {mirror_path}/"
 
