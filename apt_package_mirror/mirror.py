@@ -141,6 +141,7 @@ class Mirror:
                 --progress -vzR \
                 rsync://{mirror_url}/./dists/{dist}/Release* \
                 rsync://{mirror_url}/./dists/{dist}/InRelease \
+                rsync://{mirror_url}/./dists/{dist}/Changelog* \
                 {mirror_path}/"
 
         rsync_template_zzz_dists = "rsync --recursive --times --links --hard-links \
@@ -158,12 +159,15 @@ class Mirror:
                 rsync://{mirror_url}/./dists/{dist}/{repo}/i18n \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/Release* \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/InRelease \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/dep11/by-hash \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/dep11/icons* \
                 {mirror_path}/"
 
         rsync_template_arch = "rsync --recursive --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd --stats \
                 --progress -vzR \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/debian-installer/*{arch}* \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/dep11/*{arch}* \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/*{arch}* \
                 {mirror_path}/"
 
@@ -566,6 +570,7 @@ class Mirror:
         with open(file_path, 'r') as f_stream:
             contents = f_stream.read()
 
+        self.logger.debug("checking " + file_path + " md5sum")
         actual_md5sum = hashlib.md5(contents).hexdigest()
         if hash_val != actual_md5sum:
             self.logger.debug(
@@ -583,6 +588,7 @@ class Mirror:
         with open(file_path, 'r') as f_stream:
             contents = f_stream.read()
 
+        self.logger.debug("checking " + file_path + " sha1")
         actual_sha1 = hashlib.sha1(contents).hexdigest()
         if hash_val != actual_sha1:
             self.logger.debug(
@@ -600,6 +606,7 @@ class Mirror:
         with open(file_path, 'r') as f_stream:
             contents = f_stream.read()
 
+        self.logger.debug("checking " + file_path + " sha256")
         actual_sha256 = hashlib.sha256(contents).hexdigest()
         if hash_val != actual_sha256:
             self.logger.debug(
