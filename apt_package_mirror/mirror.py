@@ -302,15 +302,15 @@ class Mirror:
                 {mirror_path}/"
         if not re.match(".*(\.gz|\.bz2)$", file_name):
             with open(file_name, 'r') as f_stream:
-                f_contents = f_stream.read()
+                f_contents = f_stream.read().decode('utf-8')
 
         elif re.match(".*\.gz$", file_name):
             with gzip.open(file_name, 'r') as f_stream:
-                f_contents = f_stream.read()
+                f_contents = f_stream.read().decode('utf-8')
 
         elif re.match(".*\.bz2$", file_name):
             with bz2.BZ2File(file_name, 'r') as f_stream:
-                f_contents = f_stream.read()
+                f_contents = f_stream.read().decode('utf-8')
 
         self.logger.debug("Checking index " + file_name)
 
@@ -342,7 +342,7 @@ class Mirror:
                 package_info['package'] = line.split()[1]
 
             if line.startswith("Filename:"):
-                package_info['relative_path'] = line.split(" ")[1]
+                package_info['relative_path'] = line.split(' ')[1]
                 package_info['full_path'] = os.path.join(self.mirror_path, package_info['relative_path'])
 
         return package_info
@@ -359,15 +359,15 @@ class Mirror:
 
         if not re.match(".*(\.gz|\.bz2)$", file_name):
             with open(file_name, 'r') as f_stream:
-                f_contents = f_stream.read()
+                f_contents = f_stream.read().decode('utf-8')
 
         elif re.match(".*\.gz$", file_name):
             with gzip.open(file_name, 'r') as f_stream:
-                f_contents = f_stream.read()
+                f_contents = f_stream.read().decode('utf-8')
 
         elif re.match(".*\.bz2$", file_name):
             with bz2.BZ2File(file_name, 'r') as f_stream:
-                f_contents = f_stream.read()
+                f_contents = f_stream.read().decode('utf-8')
 
         lines_to_check = []
 
@@ -568,7 +568,7 @@ class Mirror:
             f_stream.close()
 
     def check_md5(self, file_path, hash_val):
-        with open(file_path, 'r') as f_stream:
+        with open(file_path, 'rb') as f_stream:
             contents = f_stream.read()
 
         self.logger.debug("checking " + file_path + " md5sum")
@@ -586,7 +586,7 @@ class Mirror:
                 )
 
     def check_sha1(self, file_path, hash_val):
-        with open(file_path, 'r') as f_stream:
+        with open(file_path, 'rb') as f_stream:
             contents = f_stream.read()
 
         self.logger.debug("checking " + file_path + " sha1")
@@ -604,7 +604,7 @@ class Mirror:
                 )
 
     def check_sha256(self, file_path, hash_val):
-        with open(file_path, 'r') as f_stream:
+        with open(file_path, 'rb') as f_stream:
             contents = f_stream.read()
 
         self.logger.debug("checking " + file_path + " sha256")

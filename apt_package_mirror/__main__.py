@@ -8,7 +8,7 @@ import argparse
 
 def main():
     # When files are created make them with a 022 umask
-    os.umask(022)
+    os.umask(0o022)
 
     # Add commandline options and help text for them
     parser = argparse.ArgumentParser()
