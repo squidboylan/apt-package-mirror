@@ -121,9 +121,9 @@ class Mirror:
             self.logger.info("= Starting Sync of Mirror             =")
             self.logger.info("=======================================")
             self.update_dists()
-            self.update_project_dir()
             self.check_release_files()
             self.check_indices()
+            self.update_top_level_dirs()
             self.update_indices()
             self.gen_lslR()
             self.remove_old_packages()
@@ -213,13 +213,14 @@ class Mirror:
                     for line in rsync_status.stdout:
                         self.logger.debug(line)
 
-    # Update the 'project' directory, delete the files that do not exist on the
-    # mirror you are cloning from, then add an entry for our mirror in
-    # project/trace
-    def update_project_dir(self):
+    # Update everything in the top level dir not including dists/, zzz-dists/,
+    # pool/, and ls-lR.gz
+    def update_top_level_dirs(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
                 --progress --delete -vz --stats --no-motd \
-                rsync://{mirror_url}/project {mirror_path}/ && date -u \
+                --exclude='dists' --exclude='zzz-dists' --exclude 'pool' \
+                --exclude='ls-lR.gz' \
+                rsync://{mirror_url}/./* {mirror_path}/ && date -u \
                 > ${mirror_path}/project/trace/$(hostname -f)"
 
         rsync_command = rsync_command.format(
@@ -227,7 +228,7 @@ class Mirror:
                 mirror_path=self.mirror_path
             )
 
-        self.logger.info("Updating 'project' directory")
+        self.logger.info("Updating top level directories")
         rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                              shell=True)
 
