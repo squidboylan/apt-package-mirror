@@ -153,6 +153,7 @@ class Mirror:
                 --contimeout=10 --timeout=10 --no-motd --stats \
                 --progress -vzR \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/by-hash \
+                rsync://{mirror_url}/./dists/{dist}/{repo}/binary-all \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/*source* \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/i18n \
                 rsync://{mirror_url}/./dists/{dist}/{repo}/Release* \
