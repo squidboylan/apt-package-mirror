@@ -97,6 +97,10 @@ class Mirror:
         else:
             self.repos = ['*']
 
+        self.parallel_downloads = 8
+        if 'parallel_downloads' in config.keys():
+            self.parallel_downloads = int(config['parallel_downloads'])
+
         self.package_ttl = package_ttl
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
@@ -285,6 +289,7 @@ class Mirror:
     # mirror actually exist (do not check the checksum of the file though as
     # that will take too much time)
     def check_packages_file(self, file_name):
+        rsync_queue = []
         rsync_template = "rsync --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd -vzR \
                 rsync://{mirror_url}/./{file_path} \
@@ -314,16 +319,15 @@ class Mirror:
                         mirror_path=self.mirror_path,
                         file_path=package_info['relative_path']
                     )
-                rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                        shell=True)
+                rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                        shell=True), package_info['relative_path'], package_info['full_path']))
 
-                rsync_status.wait()
+                if len(rsync_queue) > self.parallel_downloads:
+                    (status, relative_path, full_path) = rsync_queue.pop(0)
+                    self.wait_for_rsync(status, relative_path, full_path)
 
-                self.indexed_packages.add(package_info['relative_path'])
-
-                if not os.path.isfile(package_info['full_path']):
-                    self.logger.error("Missing file: " + package_info['full_path'])
-                    raise MirrorException("Missing file: " + package_info['full_path'])
+        for (status, relative_path, full_path) in rsync_queue:
+            self.wait_for_rsync(status, relative_path, full_path)
 
     def process_package_data(self, package_data):
         package_info = {}
@@ -341,6 +345,7 @@ class Mirror:
     # mirror actually exist (do not check the checksum of the file though as
     # that will take too much time)
     def check_sources_file(self, file_name):
+        rsync_queue = []
         rsync_template = "rsync --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd -vzR \
                 rsync://{mirror_url}/./{file_path} \
@@ -365,7 +370,6 @@ class Mirror:
             for i in source_info['files']:
                 relative_path = os.path.join(source_info['directory'], i)
                 self.logger.debug("Downloading: " + relative_path)
-                self.indexed_packages.add(relative_path)
                 full_path = os.path.join(self.mirror_path, relative_path)
 
                 rsync_command = rsync_template.format(
@@ -373,14 +377,24 @@ class Mirror:
                         mirror_path=self.mirror_path,
                         file_path=relative_path
                     )
-                rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                                     shell=True)
+                rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                                     shell=True), relative_path, full_path))
 
-                rsync_status.wait()
+                if len(rsync_queue) >= self.parallel_downloads:
+                    (status, relative_path, full_path) = rsync_queue.pop(0)
+                    self.wait_for_rsync(status, relative_path, full_path)
 
-                if not os.path.isfile(full_path):
-                    self.logger.error("Missing file: " + full_path)
-                    raise MirrorException("Missing file: " + full_path)
+        for (status, relative_path, full_path) in rsync_queue:
+            self.wait_for_rsync(status, relative_path, full_path)
+
+
+    def wait_for_rsync(self, status, relative_path, full_path):
+        status.wait()
+        self.indexed_packages.add(relative_path)
+        if not os.path.isfile(full_path):
+            self.logger.error("Missing file: " + full_path)
+            raise MirrorException("Missing file: " + full_path)
+
 
     def process_source_data(self, source_data):
         source_info = {'files': []}
