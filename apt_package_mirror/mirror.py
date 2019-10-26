@@ -382,22 +382,28 @@ class Mirror:
 
         for block in f_contents.split('\n\n'):
             source_info = self.process_source_data(block)
-            for i in source_info['files']:
-                relative_path = os.path.join(source_info['directory'], i)
-                self.logger.debug("Downloading: " + relative_path)
+            for (name, size) in source_info['files']:
+                relative_path = os.path.join(source_info['directory'], name)
                 full_path = os.path.join(self.mirror_path, relative_path)
+                try:
+                    actual_size = os.getsize(full_path)
+                except:
+                    actual_size = None
 
-                rsync_command = rsync_template.format(
-                        mirror_url=self.mirror_url,
-                        mirror_path=self.mirror_path,
-                        file_path=relative_path
-                    )
-                rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                                     shell=True), relative_path, full_path))
+                if actual_size == None or actual_size != size:
+                    self.logger.debug("Downloading: " + relative_path)
 
-                if len(rsync_queue) >= self.parallel_downloads:
-                    (status, relative_path, full_path) = rsync_queue.pop(0)
-                    self.wait_for_rsync(status, relative_path, full_path)
+                    rsync_command = rsync_template.format(
+                            mirror_url=self.mirror_url,
+                            mirror_path=self.mirror_path,
+                            file_path=relative_path
+                        )
+                    rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                                         shell=True), relative_path, full_path))
+
+                    if len(rsync_queue) >= self.parallel_downloads:
+                        (status, relative_path, full_path) = rsync_queue.pop(0)
+                        self.wait_for_rsync(status, relative_path, full_path)
 
         for (status, relative_path, full_path) in rsync_queue:
             self.wait_for_rsync(status, relative_path, full_path)
@@ -427,7 +433,7 @@ class Mirror:
                 last_line_files = True
 
             elif line.startswith(" ") and last_line_files == True:
-                source_info['files'] = source_info['files'] + [line.split()[2]]
+                source_info['files'] = source_info['files'] + [(line.split()[2], line.split()[1])]
             else:
                 last_line_files = False
 
