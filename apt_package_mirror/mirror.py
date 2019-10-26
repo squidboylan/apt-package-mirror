@@ -463,17 +463,6 @@ class Mirror:
             else:
                 return []
 
-    # List all files in a dir recursively
-    def _get_files(self, path):
-        if os.path.isdir(path):
-            indices = []
-            for item in os.listdir(path):
-                file_path = os.path.join(path, item)
-                indices = indices + self._get_release_files(file_path)
-            return indices
-        else:
-            return [path]
-
     # Check that each index the release file says our mirror has actually
     # exists in our mirror and that the hash_values match. If they are
     # inconsistent it will lead to a broken mirror.
@@ -598,8 +587,12 @@ class Mirror:
                 time_marked = int(yaml_data[f])
                 if now_num - time_marked >= self.package_ttl:
                     full_path = os.path.join(self.mirror_path, f)
-                    self.logger.debug("Removing: ")
-                    #os.remove(full_path)
+                    self.logger.debug("Removing: " + full_path)
+                    try:
+                        os.remove(full_path)
+                    except FileNotFoundError:
+                        pass
+                    yaml_data.pop(f)
             else:
                 yaml_data[f] = now
 
@@ -668,7 +661,7 @@ class Mirror:
             indices = []
             for item in os.listdir(path):
                 file_path = os.path.join(path, item)
-                indices = indices + self._get_release_files(file_path)
+                indices = indices + self._get_files(file_path)
             return indices
         else:
             return [path]
