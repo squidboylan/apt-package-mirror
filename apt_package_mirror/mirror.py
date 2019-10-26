@@ -277,7 +277,7 @@ class Mirror:
     # Find all of the 'Packages.gz' files and 'Sources.gz' files in the 'dists'
     # directory so the check_index() function can check their integrity
     def _get_indices(self, dir):
-        if not os.path.isfile(dir):
+        if os.path.isdir(dir):
             indices = []
             for item in os.listdir(dir):
                 file_path = os.path.join(dir, item)
@@ -320,8 +320,8 @@ class Mirror:
             # If the package has a file , then rsync the file
             if 'relative_path' in package_info.keys():
                 try:
-                    actual_size = os.getsize(package_info['full_path'])
-                except:
+                    actual_size = os.path.getsize(package_info['full_path'])
+                except FileNotFoundError:
                     actual_size = None
 
                 if actual_size == None or actual_size != package_info['size']:
@@ -348,7 +348,7 @@ class Mirror:
                 package_info['package'] = line.split()[1]
 
             if line.startswith("Size:"):
-                package_info['size'] = line.split()[1]
+                package_info['size'] = int(line.split()[1])
 
             if line.startswith("Filename:"):
                 package_info['relative_path'] = line.split(' ')[1]
@@ -386,8 +386,8 @@ class Mirror:
                 relative_path = os.path.join(source_info['directory'], name)
                 full_path = os.path.join(self.mirror_path, relative_path)
                 try:
-                    actual_size = os.getsize(full_path)
-                except:
+                    actual_size = os.path.getsize(full_path)
+                except FileNotFoundError:
                     actual_size = None
 
                 if actual_size == None or actual_size != size:
@@ -433,7 +433,7 @@ class Mirror:
                 last_line_files = True
 
             elif line.startswith(" ") and last_line_files == True:
-                source_info['files'] = source_info['files'] + [(line.split()[2], line.split()[1])]
+                source_info['files'] = source_info['files'] + [(line.split()[2], int(line.split()[1]))]
             else:
                 last_line_files = False
 
@@ -449,7 +449,7 @@ class Mirror:
 
     # Find all the 'Release' files in the 'dists' directory
     def _get_release_files(self, dir):
-        if not os.path.isfile(dir):
+        if os.path.isdir(dir):
             indices = []
             for item in os.listdir(dir):
                 file_path = os.path.join(dir, item)
@@ -478,8 +478,9 @@ class Mirror:
     # exists in our mirror and that the hash_values match. If they are
     # inconsistent it will lead to a broken mirror.
     def check_release_file(self, file_name):
-        current_hash_type = None
+        self.resolve_link(file_name)
 
+        current_hash_type = None
         self.logger.debug("Checking release file " + file_name)
         with open(file_name) as f_stream:
             f_contents = f_stream.read()
@@ -511,6 +512,30 @@ class Mirror:
 
                     elif self.hash_function == "SHA256":
                         self.check_sha256(file_path, hash_val)
+
+    # Sometimes Release files are symlinks to entirely separate directories, we
+    # may need to download the file to fix the broken link
+    def resolve_link(self, file_name):
+        if os.path.exists(file_name):
+            return
+
+        real_path = os.path.realpath(file_name)
+        relative_path = os.path.relpath(real_path, self.temp_indices)
+
+        self.logger.debug("Resolving link {file_name} -> {relative_path}".format(file_name=file_name, relative_path=relative_path))
+
+        rsync_template = "rsync --times --links --hard-links \
+                --contimeout=10 --timeout=10 --no-motd -vzR \
+                rsync://{mirror_url}/./{file_path} \
+                {mirror_path}/"
+
+        rsync_command = rsync_template.format(
+                mirror_url=self.mirror_url,
+                mirror_path=self.temp_indices,
+                file_path=relative_path
+            )
+        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE, shell=True)
+        rsync_status.wait()
 
     # Move the 'dists' and 'zzz-dists' into the mirror from their temporary
     # location
