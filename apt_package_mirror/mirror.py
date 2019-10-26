@@ -319,18 +319,24 @@ class Mirror:
 
             # If the package has a file , then rsync the file
             if 'relative_path' in package_info.keys():
-                self.logger.debug("Downloading: " + package_info['relative_path'])
-                rsync_command = rsync_template.format(
-                        mirror_url=self.mirror_url,
-                        mirror_path=self.mirror_path,
-                        file_path=package_info['relative_path']
-                    )
-                rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                        shell=True), package_info['relative_path'], package_info['full_path']))
+                try:
+                    actual_size = os.getsize(package_info['full_path'])
+                except:
+                    actual_size = None
 
-                if len(rsync_queue) > self.parallel_downloads:
-                    (status, relative_path, full_path) = rsync_queue.pop(0)
-                    self.wait_for_rsync(status, relative_path, full_path)
+                if actual_size == None or actual_size != package_info['size']:
+                    self.logger.debug("Downloading: " + package_info['relative_path'])
+                    rsync_command = rsync_template.format(
+                            mirror_url=self.mirror_url,
+                            mirror_path=self.mirror_path,
+                            file_path=package_info['relative_path']
+                        )
+                    rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                            shell=True), package_info['relative_path'], package_info['full_path']))
+
+                    if len(rsync_queue) > self.parallel_downloads:
+                        (status, relative_path, full_path) = rsync_queue.pop(0)
+                        self.wait_for_rsync(status, relative_path, full_path)
 
         for (status, relative_path, full_path) in rsync_queue:
             self.wait_for_rsync(status, relative_path, full_path)
@@ -340,6 +346,9 @@ class Mirror:
         for line in package_data.split('\n'):
             if line.startswith("Package:"):
                 package_info['package'] = line.split()[1]
+
+            if line.startswith("Size:"):
+                package_info['size'] = line.split()[1]
 
             if line.startswith("Filename:"):
                 package_info['relative_path'] = line.split(' ')[1]
