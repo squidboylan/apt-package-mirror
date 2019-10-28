@@ -324,6 +324,8 @@ class Mirror:
                 except FileNotFoundError:
                     actual_size = None
 
+                self.indexed_packages.add(relative_path)
+
                 if actual_size == None or actual_size != package_info['size']:
                     self.logger.debug("Downloading: " + package_info['relative_path'])
                     rsync_command = rsync_template.format(
@@ -390,6 +392,8 @@ class Mirror:
                 except FileNotFoundError:
                     actual_size = None
 
+                self.indexed_packages.add(relative_path)
+
                 if actual_size == None or actual_size != size:
                     self.logger.debug("Downloading: " + relative_path)
 
@@ -411,7 +415,6 @@ class Mirror:
 
     def wait_for_rsync(self, status, relative_path, full_path):
         status.wait()
-        self.indexed_packages.add(relative_path)
         if not os.path.isfile(full_path):
             self.logger.error("Missing file: " + full_path)
             raise MirrorException("Missing file: " + full_path)
@@ -564,7 +567,7 @@ class Mirror:
             )
 
     def remove_old_packages(self):
-        actual_packages = set(self._get_files(os.path.join(self.mirror_path, 'pool')))
+        actual_packages = set(map(lambda x: os.path.relpath(x, self.mirror_path), self._get_files(os.path.join(self.mirror_path, 'pool'))))
         old_files = actual_packages - self.indexed_packages
         yaml_file = os.path.join(self.temp_indices, 'files_to_delete')
         now_num = int(time.time())
