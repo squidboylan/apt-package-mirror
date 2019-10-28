@@ -533,8 +533,9 @@ class Mirror:
     # location
     def update_indices(self):
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delay-updates --progress -vz \
-                {temp_indices}/dists {mirror_path}/"
+                --delay-updates --progress -vz --delete \
+                {temp_indices}/dists \
+                {mirror_path}/"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
                 temp_indices=self.temp_indices
@@ -545,7 +546,8 @@ class Mirror:
                              shell=True)
 
         rsync_command = "rsync --recursive --times --links --hard-links \
-                --delay-updates --progress -vz {temp_indices}/zzz-dists \
+                --delay-updates --progress -vz --delete \
+                {temp_indices}/zzz-dists \
                 {mirror_path}/"
         rsync_command = rsync_command.format(
                 mirror_path=self.mirror_path,
