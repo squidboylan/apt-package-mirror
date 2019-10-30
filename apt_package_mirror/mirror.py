@@ -73,43 +73,20 @@ class Mirror:
         else:
             self.hash_function = hash_function.upper()
 
-        if 'distributions' in config.keys():
-            if type(config['distributions']) is list:
-                self.distributions = config['distributions']
-            else:
-                self.logger.error("the 'distributions' option must be a list")
-        else:
-            self.distributions = ['*']
-
-        if 'architectures' in config.keys():
-            if type(config['architectures']) is list:
-                self.architectures = config['architectures']
-            else:
-                self.logger.error("the 'architectures' option must be a list")
-        else:
-            self.architectures = ['*']
-
-        if 'repos' in config.keys():
-            if type(config['architectures']) is list:
-                self.repos = config['repos']
-            else:
-                self.logger.error("the 'repos' option must be a list")
-        else:
-            self.repos = ['*']
-
-        self.parallel_downloads = 8
-        if 'parallel_downloads' in config.keys():
-            self.parallel_downloads = int(config['parallel_downloads'])
+        self.distributions = config.get('distributions', '*')
+        self.architectures = config.get('architectures', '*')
+        self.repos = config.get('repos', '*')
+        self.parallel_downloads = int(config.get('parallel_downloads', 8))
 
         self.package_ttl = package_ttl
         self.mirror_path = mirror_path
         self.mirror_url = mirror_url
         self.temp_indices = temp_indices
+        self.lock_file = config.get('lock_file', os.path.join(self.temp_indices, 'sync_in_progress'))
         self.indexed_packages = set()
 
     # Sync the whole mirror
     def sync(self):
-        self.lock_file = os.path.join(self.temp_indices, 'sync_in_progress')
         if os.path.exists(self.lock_file):
             self.logger.info("Sync already in progress")
             sys.exit(1)
