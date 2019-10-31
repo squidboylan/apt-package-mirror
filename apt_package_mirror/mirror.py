@@ -303,7 +303,7 @@ class Mirror:
                 except FileNotFoundError:
                     actual_size = None
 
-                self.indexed_packages.add(relative_path)
+                self.indexed_packages.add(package_info['relative_path'])
 
                 if actual_size == None or actual_size != package_info['size']:
                     self.logger.debug("Downloading: " + package_info['relative_path'])
