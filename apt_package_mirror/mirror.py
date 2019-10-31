@@ -558,6 +558,11 @@ class Mirror:
                 ), stdout=PIPE, stderr=PIPE, shell=True
             )
 
+        ls_status.wait()
+
+        if ls_status.returncode != 0:
+            raise MirrorException("ls -lR file generation failed")
+
     def remove_old_packages(self):
         actual_packages = set(map(lambda x: os.path.relpath(x, self.mirror_path), self._get_files(os.path.join(self.mirror_path, 'pool'))))
         old_files = actual_packages - self.indexed_packages
