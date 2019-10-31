@@ -26,6 +26,7 @@ class Mirror:
     def __init__(self, config, mirror_path, mirror_url,
                  temp_indices=None, log_file=None, log_level=None,
                  package_ttl=None, hash_function=None):
+        self.rsync_queue = []
 
         self.logger = logging.getLogger()
         if log_level.upper() == 'DEBUG':
@@ -311,14 +312,13 @@ class Mirror:
                             file_path=package_info['relative_path']
                         )
                     rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                            shell=True), package_info['relative_path'], package_info['full_path']))
+                            shell=True), package_info['full_path']))
 
                     if len(rsync_queue) > self.parallel_downloads:
-                        (status, relative_path, full_path) = rsync_queue.pop(0)
-                        self.wait_for_rsync(status, relative_path, full_path)
+                        self.wait_for_rsync()
 
-        for (status, relative_path, full_path) in rsync_queue:
-            self.wait_for_rsync(status, relative_path, full_path)
+        while rsync_queue:
+            self.wait_for_rsync()
 
     def process_package_data(self, package_data):
         package_info = {}
@@ -380,22 +380,27 @@ class Mirror:
                             file_path=relative_path
                         )
                     rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
-                                         shell=True), relative_path, full_path))
+                                         shell=True), full_path))
 
                     if len(rsync_queue) >= self.parallel_downloads:
-                        (status, relative_path, full_path) = rsync_queue.pop(0)
-                        self.wait_for_rsync(status, relative_path, full_path)
+                        self.wait_for_rsync()
 
-        for (status, relative_path, full_path) in rsync_queue:
-            self.wait_for_rsync(status, relative_path, full_path)
+        while self.rsync_queue:
+            self.wait_for_rsync()
 
 
-    def wait_for_rsync(self, status, relative_path, full_path):
-        status.wait()
-        if not os.path.isfile(full_path):
-            self.logger.error("Missing file: " + full_path)
-            raise MirrorException("Missing file: " + full_path)
+    def wait_for_rsync(self)
+        while 1:
+            for i in self.rsync_queue
+                if i.poll():
+                    (status, full_path) = i
+                    self.rsync_queue.remove(i)
+                    if not os.path.isfile(full_path):
+                        self.logger.error("Missing file: " + full_path)
+                        raise MirrorException("Missing file: " + full_path)
+                    return
 
+            time.sleep(0.05)
 
     def process_source_data(self, source_data):
         source_info = {'files': []}
