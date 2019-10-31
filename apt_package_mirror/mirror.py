@@ -99,6 +99,7 @@ class Mirror:
             self.logger.info("= Starting Sync of Mirror             =")
             self.logger.info("=======================================")
             self.update_dists()
+            self.resolve_links()
             self.check_release_files()
             self.check_indices()
             self.update_top_level_dirs()
@@ -314,7 +315,7 @@ class Mirror:
                     rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                             shell=True), package_info['full_path']))
 
-                    if len(rsync_queue) > self.parallel_downloads:
+                    if len(rsync_queue) >= self.parallel_downloads:
                         self.wait_for_rsync()
 
         while rsync_queue:
@@ -389,12 +390,11 @@ class Mirror:
             self.wait_for_rsync()
 
 
-    def wait_for_rsync(self)
+    def wait_for_rsync(self):
         while 1:
-            for i in self.rsync_queue
-                if i.poll():
-                    (status, full_path) = i
-                    self.rsync_queue.remove(i)
+            for (status, full_path) in self.rsync_queue:
+                if status.poll() is not None:
+                    self.rsync_queue.remove((status, full_path))
                     if not os.path.isfile(full_path):
                         self.logger.error("Missing file: " + full_path)
                         raise MirrorException("Missing file: " + full_path)
@@ -452,8 +452,6 @@ class Mirror:
     # exists in our mirror and that the hash_values match. If they are
     # inconsistent it will lead to a broken mirror.
     def check_release_file(self, file_name):
-        self.resolve_link(file_name)
-
         current_hash_type = None
         self.logger.debug("Checking release file " + file_name)
         with open(file_name) as f_stream:
@@ -487,10 +485,18 @@ class Mirror:
                     elif self.hash_function == "SHA256":
                         self.check_sha256(file_path, hash_val)
 
+    def resolve_links(self):
+        files = self._get_files(os.path.join(self.temp_indices, "dists"))
+        for f in files:
+            if len(self.rsync_queue) >= self.parallel_downloads:
+                self.wait_for_rsync()
+
+            self.resolve_link(f)
+
     # Sometimes Release files are symlinks to entirely separate directories, we
     # may need to download the file to fix the broken link
     def resolve_link(self, file_name):
-        if os.path.exists(file_name):
+        if os.path.exists(file_name) and not os.path.islink(file_name):
             return
 
         real_path = os.path.realpath(file_name)
@@ -508,8 +514,9 @@ class Mirror:
                 mirror_path=self.temp_indices,
                 file_path=relative_path
             )
-        rsync_status = Popen(rsync_command, stdout=PIPE, stderr=PIPE, shell=True)
-        rsync_status.wait()
+
+        self.rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+            shell=True), real_path))
 
     # Move the 'dists' and 'zzz-dists' into the mirror from their temporary
     # location
