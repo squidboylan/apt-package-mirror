@@ -274,7 +274,6 @@ class Mirror:
     # mirror actually exist (do not check the checksum of the file though as
     # that will take too much time)
     def check_packages_file(self, file_name):
-        rsync_queue = []
         rsync_template = "rsync --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd -vzR \
                 rsync://{mirror_url}/./{file_path} \
@@ -312,13 +311,13 @@ class Mirror:
                             mirror_path=self.mirror_path,
                             file_path=package_info['relative_path']
                         )
-                    rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                    self.rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                             shell=True), package_info['full_path']))
 
-                    if len(rsync_queue) >= self.parallel_downloads:
+                    if len(self.rsync_queue) >= self.parallel_downloads:
                         self.wait_for_rsync()
 
-        while rsync_queue:
+        while self.rsync_queue:
             self.wait_for_rsync()
 
     def process_package_data(self, package_data):
@@ -340,7 +339,6 @@ class Mirror:
     # mirror actually exist (do not check the checksum of the file though as
     # that will take too much time)
     def check_sources_file(self, file_name):
-        rsync_queue = []
         rsync_template = "rsync --times --links --hard-links \
                 --contimeout=10 --timeout=10 --no-motd -vzR \
                 rsync://{mirror_url}/./{file_path} \
@@ -380,10 +378,10 @@ class Mirror:
                             mirror_path=self.mirror_path,
                             file_path=relative_path
                         )
-                    rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
+                    self.rsync_queue.append((Popen(rsync_command, stdout=PIPE, stderr=PIPE,
                                          shell=True), full_path))
 
-                    if len(rsync_queue) >= self.parallel_downloads:
+                    if len(self.rsync_queue) >= self.parallel_downloads:
                         self.wait_for_rsync()
 
         while self.rsync_queue:
@@ -492,6 +490,9 @@ class Mirror:
                 self.wait_for_rsync()
 
             self.resolve_link(f)
+
+        while self.rsync_queue:
+            self.wait_for_rsync()
 
     # Sometimes Release files are symlinks to entirely separate directories, we
     # may need to download the file to fix the broken link
