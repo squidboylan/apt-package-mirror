@@ -15,6 +15,11 @@ log_file: /var/log/ubuntu-mirror
 # Python logging log levels, valid values are debug,info,warning,error,critical
 log_level: debug
 
+# The lock file the mirror grabs before it starts an update. Some updates may
+# take a long amount of time to sync data, therefore we dont want updates on a
+# timer step on eachother
+lock_file: /tmp/ubuntu-mirror.lock
+
 # Type of hash function to use valid values are md5sum,sha256,sha1. Default is
 # SHA256
 hash_function: SHA256
@@ -24,14 +29,25 @@ hash_function: SHA256
 package_ttl:  900
 
 # These are the dirs in dists/
+# Shell globbing works 
+# Default ['*']
 distributions:
   - stretch-updates
 
 # CPU architectures
+# the "all" architecture is implicit
+# Default ['*']
 architectures:
-  - all
   - amd64
 
 # examples: main, contrib, non-free
+# Default ['*']
 repos:
   - non-free
+
+# This setting allows for more parallel rsync forks. Raising this can
+# significantly speed up the syncing of packages. However some rsync servers
+# limit the number of connections to the server you can have at once. Therefore
+# if you are having issues with rsyncing packages, try reduce this number.
+# Default is 8
+parallel_downloads: 8
