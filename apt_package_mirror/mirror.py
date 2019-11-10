@@ -112,6 +112,7 @@ class Mirror:
             os.remove(self.lock_file)
             raise
 
+    # Sync the dists specificed by the config to a temporary location
     def update_dists(self):
         self.logger.debug("Downloading dists\nrepos: " + str(self.repos) +
                 "\narchitectures: " + str(self.architectures) + "\ndistributions: " + str(self.distributions))
@@ -320,6 +321,7 @@ class Mirror:
         while self.rsync_queue:
             self.wait_for_rsync()
 
+    # Provide a convenient object for an entry in the package index file
     def process_package_data(self, package_data):
         package_info = {}
         for line in package_data.split('\n'):
@@ -388,6 +390,7 @@ class Mirror:
             self.wait_for_rsync()
 
 
+    # Wait for 1 of our ongoing rsyncs to finish
     def wait_for_rsync(self):
         while 1:
             for (status, full_path) in self.rsync_queue:
@@ -398,8 +401,10 @@ class Mirror:
                         raise MirrorException("Missing file: " + full_path)
                     return
 
+            # There's probably a better way to do this with some sort of async things
             time.sleep(0.05)
 
+    # Provide a convenient object for an entry in the source index file
     def process_source_data(self, source_data):
         source_info = {'files': []}
         last_line_files = False
@@ -483,6 +488,9 @@ class Mirror:
                     elif self.hash_function == "SHA256":
                         self.check_sha256(file_path, hash_val)
 
+    # Update/Download all the links in the "dists" dir. We need this because
+    # the debian mirror links files in "dists" to "zzz-dists" and we need to
+    # ensure the linked files exist and are updated
     def resolve_links(self):
         files = self._get_files(os.path.join(self.temp_indices, "dists"))
         for f in files:
@@ -494,8 +502,6 @@ class Mirror:
         while self.rsync_queue:
             self.wait_for_rsync()
 
-    # Sometimes Release files are symlinks to entirely separate directories, we
-    # may need to download the file to fix the broken link
     def resolve_link(self, file_name):
         if os.path.exists(file_name) and not os.path.islink(file_name):
             return
@@ -563,6 +569,10 @@ class Mirror:
         if ls_status.returncode != 0:
             raise MirrorException("ls -lR file generation failed")
 
+    # Delete all the unindexed packages in pool/
+    # This keeps unindexed packages around for >= self.package_ttl seconds
+    # after they are unindexed to prevent clients from failing to download
+    # files they still think are indexed in the mirror
     def remove_old_packages(self):
         actual_packages = set(map(lambda x: os.path.relpath(x, self.mirror_path), self._get_files(os.path.join(self.mirror_path, 'pool'))))
         old_files = actual_packages - self.indexed_packages
@@ -600,6 +610,8 @@ class Mirror:
             f_stream.write(yaml.dump(yaml_data))
             f_stream.close()
 
+    # Compare the md5 of the file against the hash_val, if they dont match we
+    # raise an exception
     def check_md5(self, file_path, hash_val):
         with open(file_path, 'rb') as f_stream:
             contents = f_stream.read()
@@ -618,6 +630,8 @@ class Mirror:
                     ' (MD5Sum)'
                 )
 
+    # Compare the sha1 of the file against the hash_val, if they dont match we
+    # raise an exception
     def check_sha1(self, file_path, hash_val):
         with open(file_path, 'rb') as f_stream:
             contents = f_stream.read()
@@ -636,6 +650,8 @@ class Mirror:
                     ' (SHA1)'
                 )
 
+    # Compare the sha256 of the file against the hash_val, if they dont match we
+    # raise an exception
     def check_sha256(self, file_path, hash_val):
         with open(file_path, 'rb') as f_stream:
             contents = f_stream.read()
