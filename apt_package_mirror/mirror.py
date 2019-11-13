@@ -584,7 +584,7 @@ class Mirror:
         yaml_data = {}
         try:
             with open(yaml_file, 'r') as f_stream:
-                yaml_data = yaml.load(f_stream)
+                yaml_data = yaml.safe_load(f_stream)
                 f_stream.close()
         except:
             pass
